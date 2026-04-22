@@ -1,0 +1,243 @@
+# ============================================================
+#  Cooking Brain — Culinary Topic Taxonomy
+#  Used by GapAnalyzer (Method 4) to find topics the wiki
+#  has never touched. Edit freely — this is your master list.
+# ============================================================
+
+taxonomy:
+  Food Science:
+    - Maillard reaction
+    - Caramelization
+    - Emulsification
+    - Gelation
+    - Fermentation
+    - Starch gelatinization
+    - Protein denaturation
+    - Osmosis and brining
+    - pH and acidity in cooking
+    - Heat transfer in cooking
+    - Collagen to gelatin conversion
+    - Fat crystallization
+    - Foam formation and stability
+    - Flavor compound volatility
+    - Water activity and food preservation
+    - Oxidation and rancidity
+    - Enzymatic browning
+    - Spherification and hydrocolloids
+    - Transglutaminase
+    - Sous vide science
+
+  Cooking Techniques:
+    Heat Methods:
+      - Sautéing
+      - Pan frying
+      - Deep frying
+      - Roasting
+      - Broiling
+      - Grilling
+      - Braising
+      - Stewing
+      - Poaching
+      - Steaming
+      - Boiling
+      - Blanching
+      - Sous vide
+      - Smoking
+      - Pressure cooking
+      - Confit
+      - En papillote
+    Prep Techniques:
+      - Brunoise
+      - Julienne
+      - Chiffonade
+      - Mise en place
+      - Seasoning and tasting
+      - Resting and carryover cooking
+      - Tempering proteins
+      - Barding and larding
+      - Trussing poultry
+      - Dicing and mincing
+      - Deglaze and fond
+
+  Sauces and Stocks:
+    - Brown stock
+    - White stock
+    - Fish stock
+    - Court-bouillon
+    - Béchamel
+    - Velouté
+    - Espagnole
+    - Hollandaise
+    - Béarnaise
+    - Mayonnaise
+    - Vinaigrette
+    - Pan sauces
+    - Reduction
+    - Monter au beurre
+    - Roux
+    - Beurre blanc
+    - Jus lié
+    - Gastrique
+    - Compound butter
+
+  Baking and Pastry:
+    - Gluten development
+    - Chemical leavening
+    - Yeast fermentation
+    - Laminated dough
+    - Puff pastry
+    - Croissant
+    - Choux pastry
+    - Pâte sablée
+    - Shortcrust pastry
+    - Creaming method
+    - French meringue
+    - Italian meringue
+    - Swiss meringue
+    - Tempering chocolate
+    - Sugar stages
+    - Custard
+    - Lemon curd
+    - Bavarian cream
+    - Mousse
+    - Bread scoring
+    - Sourdough starter
+    - Brioche
+    - Tart shell
+
+  Proteins:
+    Meat:
+      - Beef cuts
+      - Beef grading
+      - Pork cuts
+      - Lamb cuts
+      - Veal
+      - Offal
+      - Charcuterie
+      - Dry curing
+      - Wet curing
+      - Sausage making
+      - Dry aging
+      - Connective tissue
+      - Muscle fiber structure
+    Poultry:
+      - Chicken fabrication
+      - Duck cookery
+      - Game birds
+      - Poultry trussing
+    Seafood:
+      - Fish fabrication
+      - Shellfish handling
+      - Cephalopod cookery
+      - Fish curing
+      - Fish smoking
+      - Ceviche and acid cookery
+    Eggs:
+      - Egg cookery methods
+      - Soft boiled eggs
+      - Scrambled eggs
+      - Frittata
+      - Soufflé
+      - Egg emulsification
+
+  Vegetables Grains and Legumes:
+    - Blanching and shocking
+    - Root vegetable cookery
+    - Alliums
+    - Brassicas
+    - Nightshades
+    - Mushrooms
+    - Rice varieties
+    - Risotto
+    - Pilaf
+    - Polenta
+    - Pasta making
+    - Gnocchi
+    - Legume preparation
+    - Bean cookery
+    - Grains overview
+
+  Dairy:
+    - Cheese types
+    - Cheese classification
+    - Butter clarification
+    - Ghee
+    - Cream fat percentages
+    - Yogurt
+    - Fermented dairy
+    - Crème fraîche
+    - Cooking with cream
+    - Curdling prevention
+
+  Flavor and Seasoning:
+    - Salt and salinity
+    - Umami
+    - Acid balance
+    - Bitterness management
+    - Sweetness balance
+    - Fresh herbs
+    - Dried herbs
+    - Spice blooming
+    - Aromatics
+    - Mirepoix
+    - Soffritto
+    - Finishing oils
+    - Finishing vinegars
+    - Five tastes
+
+  Food Safety and HACCP:
+    - Temperature danger zone
+    - Cross contamination
+    - HACCP principles
+    - Food storage temperatures
+    - Allergen management
+    - Sanitation procedures
+    - Personal hygiene in kitchen
+    - Food dating and labeling
+    - Receiving and storage
+
+  Kitchen Management:
+    - Food costing
+    - Portion control
+    - Recipe scaling
+    - Staff scheduling
+    - Kitchen brigade
+    - Mise en place principles
+    - Waste reduction
+    - Menu engineering
+    - Procurement and ordering
+    - Yield percentage
+    - As-purchased vs edible portion
+    - Labour cost
+    - Contribution margin
+
+  Cuisines:
+    - French classical cuisine
+    - Italian regional cuisine
+    - Japanese cuisine
+    - Chinese regional cuisine
+    - Indian spice tradition
+    - Spanish cuisine
+    - Middle Eastern cuisine
+    - Mexican regional cuisine
+    - Southeast Asian cuisine
+    - Peruvian cuisine
+    - West African cuisine
+    - Nordic cuisine
+
+  Tools and Equipment:
+    - Knife types
+    - Knife sharpening
+    - Mandoline
+    - Immersion circulator
+    - Pressure cooker
+    - Stand mixer
+    - Food processor
+    - Probe thermometer
+    - Infrared thermometer
+    - Copper cookware
+    - Cast iron cookware
+    - Stainless steel cookware
+    - Bain-marie
+    - Chinois and strainers
+    - Mortar and pestle

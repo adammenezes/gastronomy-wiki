@@ -1,0 +1,82 @@
+# ============================================================
+#  Cooking Brain — Agent Configuration
+# ============================================================
+
+# --- Gemini API ---
+gemini:
+  api_key_env: GEMINI_API_KEY         # set this environment variable (required)
+  extra_api_key_envs:                 # optional extra keys — spreads rate limits across N keys
+    # - GEMINI_API_KEY_2
+    # - GEMINI_API_KEY_3
+  model: gemini-2.5-flash             # default model for all agents
+  temperature: 0.3
+  max_output_tokens: 8192
+  agents:                             # per-agent model overrides (comment out to use default)
+    writer:
+      model: gemini-2.5-pro           # better prose quality for page generation
+
+# --- Paths (relative to project root) ---
+paths:
+  inbox: inbox/
+  processed: inbox/processed/
+  wiki: wiki/
+  templates: _templates/
+  prompts: agent/prompts/
+
+# --- File watcher ---
+watcher:
+  enabled: true
+  debounce_seconds: 2          # wait 2s after last change before triggering
+  extensions:                  # file types to watch in inbox/
+    - .md
+    - .txt
+    - .pdf
+    - .url
+
+# --- Wiki categories ---
+wiki_categories:
+  - recipes
+  - ingredients
+  - techniques
+  - cuisines
+  - tools
+  - people
+
+# --- Lint agent ---
+# Lint reads the full wiki corpus and produces a large structured report.
+# thinking_budget: 0 disables Gemini's internal reasoning to avoid consuming the output
+# token budget before the JSON response, which causes mid-JSON truncation.
+lint:
+  max_output_tokens: 32768
+  thinking_budget: 0
+
+# --- Agent behaviour ---
+agent:
+  dry_run: false               # if true, print changes but don't write files
+  verbose: true
+  max_related_links: 5         # max backlinks to add per page
+  update_index_on_every_run: true
+
+# --- Standardizer ---
+standardizer:
+  enabled: true
+  min_body_words: 80           # minimum words in page body (excluding frontmatter)
+  min_wiki_links: 30           # minimum [[WikiLinks]] in body (WikiLinker pass guarantees high density)
+  # Required frontmatter fields per category
+  required_frontmatter:
+    recipe:       [title, cuisine, difficulty, techniques, ingredients]
+    technique:    [title, category, difficulty]
+    ingredient:   [title, category, flavour_profile, substitutes]
+    cuisine:      [title, region]
+    tool:         [title, category]
+    person:       [title, nationality, known_for]
+    general_note: [title]
+  # Required section headers per category
+  required_sections:
+    recipe:       ["## Overview", "## Ingredients", "## Method", "## Chef's Notes"]
+    technique:    ["## Overview", "## The Science", "## How to Do It", "## Common Mistakes"]
+    ingredient:   ["## Overview", "## Flavour & Texture", "## How to Buy & Store", "## How to Use"]
+    cuisine:      ["## Overview", "## Signature Dishes", "## Key Ingredients"]
+    tool:         ["## Overview", "## How to Use"]
+    person:       ["## Overview", "## Notable Works"]
+    general_note: ["## Overview"]

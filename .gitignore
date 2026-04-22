@@ -1,0 +1,46 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+.obsidian/local
+.cache/
+
+# Local-only content (wiki lives on disk, not in git)
+wiki/
+inbox/leads.md
+inbox/processed/
+inbox/urls.txt
+
+# Session artifacts
+SESSION_HANDOFF.md
+.claude/

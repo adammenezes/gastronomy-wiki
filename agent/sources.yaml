@@ -1,0 +1,72 @@
+# ============================================================
+#  Cooking Brain — Source Registry
+#  Add new sources here. No code changes required if the
+#  crawler type already exists.
+# ============================================================
+
+sources:
+  # ── Free web sources ─────────────────────────────────────
+  - name: theculinarypro
+    display: "The Culinary Pro"
+    url: https://www.theculinarypro.com/
+    type: web_article
+    crawler: WebCrawler
+    access: free
+
+  - name: gastronomica
+    display: "Gastronomica: The Journal of Critical Food Studies"
+    url: https://gastronomica.org/
+    type: journal_article
+    crawler: MultiLinkCrawler
+    access: free
+    container_patterns:
+      - "volume"
+      - "number"
+
+  - name: aacc_libguide
+    display: "AACC Culinary Arts Library Guide"
+    url: https://libguides.aacc.edu/culinaryarts
+    type: web_article
+    crawler: WebCrawler
+    access: free
+
+  # ── Academic journals (paywalled — metadata + abstract only) ─
+  - name: intl_journal_gastronomy_food_science
+    display: "International Journal of Gastronomy and Food Science (Tandfonline)"
+    url: https://www.tandfonline.com/journals/wcsc20
+    type: journal
+    crawler: JournalScraper
+    access: paywalled
+
+  - name: intl_journal_food_science_tech
+    display: "International Journal of Food Science & Technology (Tandfonline)"
+    url: https://www.tandfonline.com/journals/rffc20
+    type: journal
+    crawler: JournalScraper
+    access: paywalled
+
+  - name: food_research_international
+    display: "Food Research International (ScienceDirect)"
+    url: https://www.sciencedirect.com/journal/food-research-international
+    type: journal
+    crawler: JournalScraper
+    access: paywalled
+
+  # ── Add new sources below ─────────────────────────────────
+  # Example — YouTube channel:
+  # - name: french_cooking_academy
+  #   display: "French Cooking Academy"
+  #   url: https://www.youtube.com/@FrenchCookingAcademy
+  #   type: youtube
+  #   crawler: YouTubeCrawler
+  #   access: free
+  #   api_key_env: YOUTUBE_API_KEY
+  #
+  # Example — Subreddit:
+  # - name: r_askculinary
+  #   display: "r/AskCulinary"
+  #   url: https://www.reddit.com/r/AskCulinary/
+  #   type: reddit
+  #   crawler: RedditCrawler
+  #   access: free
+  #   api_key_env: REDDIT_CLIENT_ID
