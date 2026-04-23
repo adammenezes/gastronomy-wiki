@@ -72,14 +72,23 @@ class ProcurementAgent:
 
     def run(
         self,
-        lint_report: dict | None = None,
-        max_leads:   int | None  = None,
+        lint_report: dict | None  = None,
+        max_leads:   int | None   = None,
+        page_gaps:   list | None  = None,
     ) -> Path:
-        """Full procurement run. Returns path to the written leads.md."""
+        """Full procurement run. Returns path to the written leads.md.
 
-        log.info("[procurer] Analyzing wiki gaps…")
-        gaps_by_signal = self.gap_analyzer.run_by_signal(lint_report)
-        gaps = self.gap_analyzer._merge(gaps_by_signal)
+        If page_gaps is provided, it is used as the gap list directly,
+        bypassing GapAnalyzer. All other pipeline stages are unchanged.
+        """
+
+        if page_gaps is not None:
+            log.info(f"[procurer] --page mode: using {len(page_gaps)} gap(s) from specified page.")
+            gaps = page_gaps
+        else:
+            log.info("[procurer] Analyzing wiki gaps…")
+            gaps_by_signal = self.gap_analyzer.run_by_signal(lint_report)
+            gaps = self.gap_analyzer._merge(gaps_by_signal)
 
         log.info(f"[procurer] Crawling {len(self.sources)} source(s)…")
         raw_leads = self._crawl_all(gaps)

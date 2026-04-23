@@ -14,6 +14,7 @@ Usage:
     python agent/procure.py --dry-run           # analyse gaps + crawl but don't write leads.md
 """
 
+import re
 import sys
 import logging
 import argparse
@@ -68,6 +69,24 @@ def _print_estimate(n_leads: int, n_sources: int, approval_rate: float = 0.10):
     print(f"-------------------------------------------------\n")
 
 
+def _gaps_from_page(page_path: str) -> list[str]:
+    """Extract [[WikiLink]] targets from a wiki page as a gap list."""
+    path = Path(page_path)
+    if not path.exists():
+        print(f"ERROR: File not found: {page_path}")
+        sys.exit(1)
+    text    = path.read_text(encoding="utf-8")
+    targets = re.findall(r"\[\[([^\]|]+)", text)
+    seen:    set[str]  = set()
+    gaps:    list[str] = []
+    for t in targets:
+        key = t.strip()
+        if key and key not in seen:
+            seen.add(key)
+            gaps.append(key)
+    return gaps
+
+
 def main():
     parser = argparse.ArgumentParser(description="Cooking Brain — Procure")
     parser.add_argument(
@@ -101,6 +120,10 @@ def main():
     parser.add_argument(
         "--dry-run",    action="store_true",
         help="Analyse and crawl but do not write leads.md",
+    )
+    parser.add_argument(
+        "--page",       type=str, default=None, metavar="PATH",
+        help="Use [[WikiLinks]] from a specific wiki page as the gap list instead of GapAnalyzer",
     )
     args = parser.parse_args()
 
@@ -170,6 +193,15 @@ def main():
         print(f"\n  Total unique gaps (merged): {len(merged)}")
         return
 
+    # ── --page: extract WikiLinks as gap list ────────────────────────────────
+    page_gaps = None
+    if args.page:
+        page_gaps = _gaps_from_page(args.page)
+        if not page_gaps:
+            print(f"ERROR: No [[WikiLinks]] found in '{args.page}'")
+            sys.exit(1)
+        print(f"  --page mode: {len(page_gaps)} gap(s) extracted from {args.page}")
+
     # ── optional --lint to enrich gap list ────────────────────────────────────
     lint_report = None
     if args.lint:
@@ -184,11 +216,14 @@ def main():
 
     # ── --dry-run ─────────────────────────────────────────────────────────────
     if args.dry_run:
-        gaps_by_signal = agent.gap_analyzer.run_by_signal(lint_report)
-        gaps           = agent.gap_analyzer._merge(gaps_by_signal)
-        raw_leads      = agent._crawl_all(gaps)
-        fresh          = agent.deduplicator.filter(raw_leads)
-        capped         = min(len(fresh), args.max_leads)
+        if page_gaps is not None:
+            gaps = page_gaps
+        else:
+            gaps_by_signal = agent.gap_analyzer.run_by_signal(lint_report)
+            gaps           = agent.gap_analyzer._merge(gaps_by_signal)
+        raw_leads = agent._crawl_all(gaps)
+        fresh     = agent.deduplicator.filter(raw_leads)
+        capped    = min(len(fresh), args.max_leads)
         _print_estimate(capped, len(agent.sources), approval_rate=args.approval_rate)
         print(f"[dry-run] Gaps: {len(gaps)} | Raw leads: {len(raw_leads)} | Fresh: {len(fresh)} | Would score: {capped}")
         print("  (leads.md not written in dry-run mode)")
@@ -198,7 +233,11 @@ def main():
     if args.source:
         print(f"  Running single source: {args.source}")
 
-    out_path = agent.run(lint_report=lint_report, max_leads=args.max_leads)
+    out_path = agent.run(
+        lint_report = lint_report,
+        max_leads   = args.max_leads,
+        page_gaps   = page_gaps,
+    )
     print(f"\n  Leads written to: {out_path}")
     print("  Open leads.md, mark [x] to approve, then run:")
     print("  python agent/procure.py --approve")
