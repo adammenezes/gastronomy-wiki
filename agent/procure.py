@@ -151,6 +151,10 @@ def main():
             if flagged:
                 print(f"  {flagged} file(s) flagged for manual review (run: python agent/sort.py).")
             orch.reindex()
+        leads_path = inbox_root / "leads.md"
+        if leads_path.exists():
+            leads_path.unlink()
+            print("  Cleared inbox/leads.md.")
         return
 
     # ── --gaps-only ───────────────────────────────────────────────────────────
