@@ -69,18 +69,19 @@ sources:
 
   - name: modernist_cuisine_blog
     display: "Modernist Cuisine Blog"
-    url: https://modernistcuisine.com/mc/all-blog-posts/
+    url: https://modernistcuisine.com/blog/
     type: web_article
     crawler: WebCrawler
     access: free
 
   # ── Dynamic search discovery (all results require manual verification) ─
   - name: web_search
-    display: "Web Search (DuckDuckGo)"
+    display: "Web Search (Brave)"
     url: ""                           # not used — search builds its own URLs
     type: search_result
     crawler: SearchCrawler
     access: verify                    # ALWAYS verify — never auto-ingest
+    api_key_env: BRAVE_API_KEY
     search_suffix: "culinary food science cooking"
     queries_per_gap: 1
     max_results: 5

@@ -1,31 +1,36 @@
 """
-SearchCrawler — discovers sources dynamically via web search.
+SearchCrawler — discovers sources dynamically via Brave Search API.
 
 Unlike WebCrawler and JournalScraper, this crawler has no fixed seed URL.
-It constructs search queries from the gap list, fetches results from
-DuckDuckGo (no API key required), confirms each result is a real article,
-and returns leads for human review.
+It constructs search queries from the gap list, queries the Brave Search API,
+confirms each result is a real article, and returns leads for human review.
 
 IMPORTANT: All leads from this crawler are marked access="verify".
 They are NEVER auto-ingested. The user must review each URL and ingest
 manually via: python agent/compile.py --url <url>
 
+Requires env var: BRAVE_API_KEY (set in .env)
+Free tier: 2,000 queries/month — https://api.search.brave.com
+
 sources.yaml config keys:
-  queries_per_gap  — how many search queries to run per gap term (default: 1)
-  max_results      — max URLs to extract per search (default: 5)
-  search_suffix    — appended to every query for domain focus
-                     e.g. "culinary science" or "food chemistry"
+  api_key_env     — env var holding the Brave API key (default: BRAVE_API_KEY)
+  queries_per_gap — how many search queries to run per gap term (default: 1)
+  max_results     — max URLs to fetch per search query (default: 5)
+  search_suffix   — appended to every query for domain focus
+  max_gaps        — how many gap terms to search (default: 25)
 
 Requires: requests, beautifulsoup4
 """
 
+import json
 import logging
+import os
 import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from urllib.parse import urljoin, urlparse, quote_plus
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -39,23 +44,25 @@ from ..lead         import Lead         # noqa: E402
 
 log = logging.getLogger("cooking-brain.procurer.search_crawler")
 
-_HEADERS = {
+_BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+
+_FETCH_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     )
 }
-_TIMEOUT         = 15
-_FETCH_WORKERS   = 6
-_PREVIEW_CHARS   = 600
-_REQUEST_DELAY   = 1.0   # seconds between DuckDuckGo requests (be polite)
+_TIMEOUT       = 15
+_FETCH_WORKERS = 6
+_PREVIEW_CHARS = 600
+_REQUEST_DELAY = 0.5   # seconds between Brave API calls
 
 # Domains to skip in search results
 _SKIP_DOMAINS = {
     "twitter.com", "x.com", "facebook.com", "instagram.com",
     "reddit.com", "pinterest.com", "youtube.com", "tiktok.com",
-    "wikipedia.org", "wikimedia.org",   # already general knowledge
+    "wikipedia.org", "wikimedia.org",
     "amazon.com", "ebay.com", "etsy.com",
     "yelp.com", "tripadvisor.com",
 }
@@ -70,11 +77,19 @@ class SearchCrawler(BaseCrawler):
     """
 
     def discover(self, topics: list[str]) -> list[Lead]:
-        source_name    = self.config.get("display", "Web Search")
+        source_name     = self.config.get("display", "Web Search")
         queries_per_gap = self.config.get("queries_per_gap", 1)
-        max_results    = self.config.get("max_results", 5)
-        search_suffix  = self.config.get("search_suffix", "culinary food")
-        max_gaps       = self.config.get("max_gaps", 20)
+        max_results     = self.config.get("max_results", 5)
+        search_suffix   = self.config.get("search_suffix", "culinary food")
+        max_gaps        = self.config.get("max_gaps", 20)
+        api_key_env     = self.config.get("api_key_env", "BRAVE_API_KEY")
+
+        api_key = os.environ.get(api_key_env, "").strip()
+        if not api_key:
+            log.warning(
+                f"  [search_crawler] {api_key_env} not set — skipping search."
+            )
+            return []
 
         # Select the most informative gap terms (skip single words / stop words)
         selected = [t for t in topics if len(t) > 4][:max_gaps]
@@ -96,7 +111,7 @@ class SearchCrawler(BaseCrawler):
         candidates: list[tuple[str, str]] = []   # (url, title)
 
         for query in queries[:max_gaps * queries_per_gap]:
-            results = self._ddg_search(query, max_results)
+            results = self._brave_search(query, max_results, api_key)
             for url, title in results:
                 if url not in seen_urls:
                     seen_urls.add(url)
@@ -149,47 +164,38 @@ class SearchCrawler(BaseCrawler):
         log.info(f"  [search_crawler] {len(leads)} confirmed article(s) from search")
         return leads
 
-    # ── DuckDuckGo search ─────────────────────────────────────────────────────
+    # ── Brave Search API ──────────────────────────────────────────────────────
 
-    def _ddg_search(self, query: str, max_results: int) -> list[tuple[str, str]]:
-        """
-        Fetch DuckDuckGo HTML search results for a query.
-        Returns list of (url, title) tuples.
-        """
+    def _brave_search(
+        self, query: str, max_results: int, api_key: str
+    ) -> list[tuple[str, str]]:
+        """Query Brave Search API. Returns list of (url, title) tuples."""
         try:
-            url  = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
-            resp = requests.get(url, headers=_HEADERS, timeout=_TIMEOUT)
+            resp = requests.get(
+                _BRAVE_SEARCH_URL,
+                headers={
+                    "X-Subscription-Token": api_key,
+                    "Accept": "application/json",
+                },
+                params={"q": query, "count": max_results},
+                timeout=_TIMEOUT,
+            )
             resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
+            data = resp.json()
         except Exception as e:
-            log.warning(f"  [search_crawler] DuckDuckGo search failed for '{query}': {e}")
+            log.warning(f"  [search_crawler] Brave search failed for '{query}': {e}")
             return []
 
         results: list[tuple[str, str]] = []
-
-        for result in soup.select(".result"):
-            link_el  = result.select_one(".result__a")
-            if not link_el:
+        for item in data.get("web", {}).get("results", []):
+            url   = item.get("url", "")
+            title = item.get("title", "")
+            if not url or len(title) < 10:
                 continue
-
-            title = link_el.get_text(strip=True)
-            href  = link_el.get("href", "")
-
-            # DuckDuckGo wraps URLs — extract the real one
-            real_url = _extract_ddg_url(href)
-            if not real_url:
-                continue
-
-            domain = urlparse(real_url).netloc.lower().lstrip("www.")
+            domain = urlparse(url).netloc.lower().lstrip("www.")
             if any(skip in domain for skip in _SKIP_DOMAINS):
                 continue
-
-            if len(title) < 10:
-                continue
-
-            results.append((real_url, title))
-            if len(results) >= max_results:
-                break
+            results.append((url, title))
 
         return results
 
@@ -203,7 +209,7 @@ class SearchCrawler(BaseCrawler):
         Returns (title, authors, date, preview) or None.
         """
         try:
-            resp = requests.get(url, headers=_HEADERS, timeout=_TIMEOUT)
+            resp = requests.get(url, headers=_FETCH_HEADERS, timeout=_TIMEOUT)
             resp.raise_for_status()
         except Exception:
             return None
@@ -273,18 +279,6 @@ class SearchCrawler(BaseCrawler):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _extract_ddg_url(href: str) -> str:
-    """Extract the real URL from a DuckDuckGo redirect href."""
-    if href.startswith("http"):
-        return href
-    # DDG uses //duckduckgo.com/l/?uddg=<encoded_url>
-    m = re.search(r"uddg=([^&]+)", href)
-    if m:
-        from urllib.parse import unquote
-        return unquote(m.group(1))
-    return ""
-
 
 def _og(soup: BeautifulSoup, prop: str) -> str:
     tag = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
