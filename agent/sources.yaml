@@ -52,6 +52,40 @@ sources:
     crawler: JournalScraper
     access: paywalled
 
+  # ── Free web sources (additional) ────────────────────────────
+  - name: serious_eats
+    display: "Serious Eats"
+    url: https://www.seriouseats.com/
+    type: web_article
+    crawler: WebCrawler
+    access: free
+
+  - name: the_food_lab
+    display: "Serious Eats — The Food Lab"
+    url: https://www.seriouseats.com/the-food-lab
+    type: web_article
+    crawler: WebCrawler
+    access: free
+
+  - name: modernist_cuisine_blog
+    display: "Modernist Cuisine Blog"
+    url: https://modernistcuisine.com/mc/all-blog-posts/
+    type: web_article
+    crawler: WebCrawler
+    access: free
+
+  # ── Dynamic search discovery (all results require manual verification) ─
+  - name: web_search
+    display: "Web Search (DuckDuckGo)"
+    url: ""                           # not used — search builds its own URLs
+    type: search_result
+    crawler: SearchCrawler
+    access: verify                    # ALWAYS verify — never auto-ingest
+    search_suffix: "culinary food science cooking"
+    queries_per_gap: 1
+    max_results: 5
+    max_gaps: 25                      # search the top 25 gap terms
+
   # ── Add new sources below ─────────────────────────────────
   # Example — YouTube channel:
   # - name: french_cooking_academy

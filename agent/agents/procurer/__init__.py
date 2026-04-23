@@ -29,9 +29,10 @@ from .gap_analyzer      import GapAnalyzer      # noqa: E402
 from .scorer            import LeadScorer       # noqa: E402
 from .deduplicator      import Deduplicator     # noqa: E402
 from .leads_writer      import LeadsWriter      # noqa: E402
-from .crawlers.web_crawler      import WebCrawler        # noqa: E402
-from .crawlers.journal_scraper  import JournalScraper    # noqa: E402
+from .crawlers.web_crawler        import WebCrawler        # noqa: E402
+from .crawlers.journal_scraper    import JournalScraper    # noqa: E402
 from .crawlers.multi_link_crawler import MultiLinkCrawler  # noqa: E402
+from .crawlers.search_crawler     import SearchCrawler     # noqa: E402
 
 log = logging.getLogger("cooking-brain.procurer")
 
@@ -41,6 +42,7 @@ CRAWLER_REGISTRY: dict = {
     "WebCrawler":       WebCrawler,
     "JournalScraper":   JournalScraper,
     "MultiLinkCrawler": MultiLinkCrawler,
+    "SearchCrawler":    SearchCrawler,
     # "YouTubeCrawler":  YouTubeCrawler,   # not yet implemented
     # "RedditCrawler":   RedditCrawler,    # not yet implemented
 }
@@ -82,6 +84,7 @@ class ProcurementAgent:
         bypassing GapAnalyzer. All other pipeline stages are unchanged.
         """
 
+        gaps_by_signal: dict = {}
         if page_gaps is not None:
             log.info(f"[procurer] --page mode: using {len(page_gaps)} gap(s) from specified page.")
             gaps = page_gaps
@@ -132,6 +135,8 @@ class ProcurementAgent:
         ingested: list[dict] = []
         manual:   list[dict] = []
 
+        verify_leads: list[dict] = []
+
         for lead in approved:
             if lead["access"] == "free":
                 try:
@@ -140,6 +145,8 @@ class ProcurementAgent:
                         ingested.append(lead)
                 except Exception as e:
                     log.error(f"  [procurer] Failed to ingest {lead['url']}: {e}")
+            elif lead["access"] == "verify":
+                verify_leads.append(lead)
             else:
                 manual.append(lead)
 
@@ -149,6 +156,14 @@ class ProcurementAgent:
                 print(f"  {lead['title']}")
                 print(f"  {lead['url']}")
                 print(f"  → Download PDF → drop in inbox/")
+                print()
+
+        if verify_leads:
+            print("\n-- Search discoveries — verify each URL before ingesting --")
+            for lead in verify_leads:
+                print(f"  {lead['title']}")
+                print(f"  {lead['url']}")
+                print(f"  → python agent/compile.py --url {lead['url']}")
                 print()
 
         if ingested:
@@ -223,7 +238,12 @@ class ProcurementAgent:
                 continue
 
             access_text = (access_match.group(1) if access_match else "").lower()
-            access = "free" if "free" in access_text else "paywalled"
+            if "verify" in access_text:
+                access = "verify"
+            elif "free" in access_text:
+                access = "free"
+            else:
+                access = "paywalled"
 
             approved.append({
                 "title":  title_match.group(1).strip() if title_match else "unknown",

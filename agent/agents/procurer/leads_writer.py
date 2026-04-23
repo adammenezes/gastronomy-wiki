@@ -56,9 +56,9 @@ class LeadsWriter:
         if not qualified:
             lines += ["## No leads met the quality threshold.", ""]
         else:
-            # Group by access type so paywall items are visually distinct
             free      = [l for l in qualified if l.access == "free"]
-            paywalled = [l for l in qualified if l.access != "free"]
+            paywalled = [l for l in qualified if l.access in ("paywalled", "library")]
+            verify    = [l for l in qualified if l.access == "verify"]
 
             if free:
                 lines += ["## Free Leads", ""]
@@ -70,6 +70,17 @@ class LeadsWriter:
                 for lead in paywalled:
                     lines += self._format_lead(lead)
 
+            if verify:
+                lines += [
+                    "## Search Discoveries — Verify Before Ingesting",
+                    "",
+                    "> These URLs were found via web search. **Review each one manually.**",
+                    "> To ingest a verified URL: `python agent/compile.py --url <url>`",
+                    "",
+                ]
+                for lead in verify:
+                    lines += self._format_lead(lead)
+
         out_path.write_text("\n".join(lines), encoding="utf-8")
         log.info(f"  [leads] Written {len(qualified)} lead(s) to {out_path}")
         return out_path
@@ -79,6 +90,7 @@ class LeadsWriter:
             "free":     "free — auto-ingestible",
             "paywalled":"**paywalled** — download PDF manually, drop in inbox/",
             "library":  "**library access** — obtain via institutional login",
+            "verify":   "**verify before ingesting** — `python agent/compile.py --url <url>`",
         }.get(lead.access, lead.access)
 
         return [
