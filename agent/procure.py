@@ -221,7 +221,7 @@ def main():
         else:
             gaps_by_signal = agent.gap_analyzer.run_by_signal(lint_report)
             gaps           = agent.gap_analyzer._merge(gaps_by_signal)
-        raw_leads = agent._crawl_all(gaps)
+        raw_leads = agent._crawl_all(gaps, page_path=args.page or "")
         fresh     = agent.deduplicator.filter(raw_leads)
         capped    = min(len(fresh), args.max_leads)
         _print_estimate(capped, len(agent.sources), approval_rate=args.approval_rate)
@@ -237,6 +237,7 @@ def main():
         lint_report = lint_report,
         max_leads   = args.max_leads,
         page_gaps   = page_gaps,
+        page_path   = args.page or "",
     )
     print(f"\n  Leads written to: {out_path}")
     print("  Open leads.md, mark [x] to approve, then run:")

@@ -61,8 +61,11 @@ class ProcurementAgent:
         sources_path: Path,
         taxonomy_path: Path,
     ):
-        self.wiki_root  = wiki_root
-        self.inbox_root = inbox_root
+        self.wiki_root   = wiki_root
+        self.inbox_root  = inbox_root
+        self.client      = client
+        self.gemini_cfg  = gemini_cfg
+        self.prompts_dir = prompts_dir
 
         self.gap_analyzer  = GapAnalyzer(wiki_root, taxonomy_path)
         self.scorer        = LeadScorer(client, gemini_cfg, prompts_dir)
@@ -77,6 +80,7 @@ class ProcurementAgent:
         lint_report: dict | None  = None,
         max_leads:   int | None   = None,
         page_gaps:   list | None  = None,
+        page_path:   str          = "",
     ) -> Path:
         """Full procurement run. Returns path to the written leads.md.
 
@@ -94,7 +98,7 @@ class ProcurementAgent:
             gaps = self.gap_analyzer._merge(gaps_by_signal)
 
         log.info(f"[procurer] Crawling {len(self.sources)} source(s)…")
-        raw_leads = self._crawl_all(gaps)
+        raw_leads = self._crawl_all(gaps, page_path=page_path)
         log.info(f"[procurer] Raw leads discovered: {len(raw_leads)}")
 
         fresh_leads = self.deduplicator.filter(raw_leads)
@@ -173,12 +177,12 @@ class ProcurementAgent:
 
     # ── Crawling ──────────────────────────────────────────────────────────────
 
-    def _crawl_all(self, topics: list[str]) -> list[Lead]:
+    def _crawl_all(self, topics: list[str], page_path: str = "") -> list[Lead]:
         all_leads: list[Lead] = []
 
         with ThreadPoolExecutor(max_workers=MAX_CRAWLER_WORKERS) as pool:
             futures = {
-                pool.submit(self._crawl_one, source, topics): source
+                pool.submit(self._crawl_one, source, topics, page_path): source
                 for source in self.sources
             }
             for fut in as_completed(futures):
@@ -196,12 +200,21 @@ class ProcurementAgent:
 
         return all_leads
 
-    def _crawl_one(self, source: dict, topics: list[str]) -> list[Lead]:
+    def _crawl_one(self, source: dict, topics: list[str], page_path: str = "") -> list[Lead]:
         crawler_name  = source.get("crawler", "WebCrawler")
         crawler_class = CRAWLER_REGISTRY.get(crawler_name)
         if not crawler_class:
             log.warning(f"  [procurer] Unknown crawler '{crawler_name}' — skipping.")
             return []
+        if crawler_name == "SearchCrawler":
+            source = {
+                **source,
+                "_client":      self.client,
+                "_gemini_cfg":  self.gemini_cfg,
+                "_prompts_dir": str(self.prompts_dir),
+                "_wiki_root":   str(self.wiki_root),
+                "_page_path":   page_path,
+            }
         return crawler_class(source).discover(topics)
 
     # ── Config ────────────────────────────────────────────────────────────────

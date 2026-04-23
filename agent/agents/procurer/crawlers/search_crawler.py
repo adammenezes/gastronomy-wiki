@@ -23,6 +23,7 @@ Requires: requests, beautifulsoup4
 """
 
 import json
+import json
 import logging
 import os
 import re
@@ -68,49 +69,98 @@ _SKIP_DOMAINS = {
 }
 
 
+_CULINARY_STOP_WORDS = {
+    "cleaned", "milled", "processed", "polished", "smooth", "loss", "shine",
+    "golden", "short", "medium", "long", "grain", "seen", "done", "process",
+    "nutrients", "vitamins", "minerals", "spoilage", "husk", "bran", "germ",
+    "hull", "drying", "soaking", "hulling", "steaming", "boiling", "rinsing",
+    "fortification", "content", "value", "level", "amount", "type", "form",
+    "color", "colour", "texture", "quality", "size", "shape", "weight",
+    "water", "heat", "time", "rate", "ratio", "yield", "loss", "change",
+}
+
+
 class SearchCrawler(BaseCrawler):
     """
-    Dynamic source discovery via DuckDuckGo search.
+    Dynamic source discovery via Brave Search API.
 
     All discovered leads are marked access='verify' and require manual
     user review before ingestion. They are never auto-ingested.
     """
 
     def discover(self, topics: list[str]) -> list[Lead]:
-        source_name     = self.config.get("display", "Web Search")
-        queries_per_gap = self.config.get("queries_per_gap", 1)
+        source_name     = self.config.get("display", "Web Search (Brave)")
         max_results     = self.config.get("max_results", 5)
         search_suffix   = self.config.get("search_suffix", "culinary food")
-        max_gaps        = self.config.get("max_gaps", 20)
+        max_gaps        = self.config.get("max_gaps", 25)
         api_key_env     = self.config.get("api_key_env", "BRAVE_API_KEY")
+
+        # Injected by ProcurementAgent for LLM filtering
+        client      = self.config.get("_client")
+        gemini_cfg  = self.config.get("_gemini_cfg")
+        prompts_dir = self.config.get("_prompts_dir", "")
+        wiki_root   = self.config.get("_wiki_root", "")
+        page_path   = self.config.get("_page_path", "")
 
         api_key = os.environ.get(api_key_env, "").strip()
         if not api_key:
-            log.warning(
-                f"  [search_crawler] {api_key_env} not set — skipping search."
-            )
+            log.warning(f"  [search_crawler] {api_key_env} not set — skipping search.")
             return []
 
-        # Select the most informative gap terms (skip single words / stop words)
-        selected = [t for t in topics if len(t) > 4][:max_gaps]
-        if not selected:
-            selected = topics[:max_gaps]
+        # ── 1. Collect existing wiki page titles for deduplication ────────────
+        existing_titles: set[str] = set()
+        if wiki_root:
+            for md in Path(wiki_root).rglob("*.md"):
+                existing_titles.add(md.stem.lower())
 
-        log.info(
-            f"  [search_crawler] Searching {len(selected)} gap term(s) "
-            f"× {queries_per_gap} quer(y/ies) each"
-        )
+        # ── 2. Derive page title for query anchoring ──────────────────────────
+        page_title = ""
+        if page_path and Path(page_path).exists():
+            text = Path(page_path).read_text(encoding="utf-8")
+            m = re.search(r'^title:\s*["\']?(.+?)["\']?\s*$', text, re.MULTILINE)
+            page_title = m.group(1).strip() if m else Path(page_path).stem.replace("-", " ")
 
-        # Build search queries
-        queries: list[str] = []
-        for gap in selected:
-            queries.append(f"{gap} {search_suffix}")
+        # ── 3. Rule-based gap filtering ───────────────────────────────────────
+        # Sort: multi-word gaps first (more specific), then single-word
+        sorted_topics = sorted(topics, key=lambda t: (-len(t.split()), t))
 
-        # Run searches, collect unique URLs
+        rule_filtered = []
+        for gap in sorted_topics:
+            lower = gap.lower().strip()
+            if len(lower) < 4:
+                continue
+            if lower in _CULINARY_STOP_WORDS:
+                continue
+            if lower in existing_titles:
+                continue   # already in wiki — not a gap
+            rule_filtered.append(gap)
+
+        rule_filtered = rule_filtered[:max_gaps * 2]   # headroom for LLM to trim
+
+        if not rule_filtered:
+            log.info("  [search_crawler] No gaps remained after rule filtering — skipping.")
+            return []
+
+        log.info(f"  [search_crawler] {len(rule_filtered)} gap(s) after rule filter (from {len(topics)})")
+
+        # ── 4. LLM query refinement (single Flash call) ───────────────────────
+        if client and gemini_cfg and prompts_dir:
+            queries = self._llm_refine_queries(
+                client, gemini_cfg, prompts_dir,
+                rule_filtered, page_title, search_suffix, max_gaps,
+            )
+        else:
+            # Fallback: construct queries mechanically
+            anchor = f" {page_title}" if page_title else ""
+            queries = [f"{gap}{anchor} {search_suffix}".strip() for gap in rule_filtered[:max_gaps]]
+
+        log.info(f"  [search_crawler] {len(queries)} search quer(y/ies) to run")
+
+        # ── 5. Run Brave searches ─────────────────────────────────────────────
         seen_urls: set[str] = set()
-        candidates: list[tuple[str, str]] = []   # (url, title)
+        candidates: list[tuple[str, str]] = []
 
-        for query in queries[:max_gaps * queries_per_gap]:
+        for query in queries:
             results = self._brave_search(query, max_results, api_key)
             for url, title in results:
                 if url not in seen_urls:
@@ -120,7 +170,7 @@ class SearchCrawler(BaseCrawler):
 
         log.info(f"  [search_crawler] {len(candidates)} unique URL(s) from search")
 
-        # Confirm each candidate is a real article, extract metadata
+        # ── 6. Confirm articles + extract metadata ────────────────────────────
         leads: list[Lead] = []
         with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
             futures = {
@@ -152,17 +202,52 @@ class SearchCrawler(BaseCrawler):
                     title           = title,
                     source_name     = source_name,
                     source_type     = "search_result",
-                    access          = "verify",      # ALWAYS — never auto-ingest
+                    access          = "verify",
                     content_preview = preview_text,
-                    metadata        = {
-                        "authors":   authors,
-                        "published": pub_date,
-                        "search":    True,
-                    },
+                    metadata        = {"authors": authors, "published": pub_date, "search": True},
                 ))
 
         log.info(f"  [search_crawler] {len(leads)} confirmed article(s) from search")
         return leads
+
+    # ── LLM query refinement ──────────────────────────────────────────────────
+
+    def _llm_refine_queries(
+        self,
+        client, gemini_cfg: dict, prompts_dir: str,
+        gaps: list[str], page_title: str, search_suffix: str, max_queries: int,
+    ) -> list[str]:
+        """Single Flash call to turn raw gap terms into precise search queries."""
+        try:
+            from gemini      import call_gemini   # noqa: E402
+            from utils       import load_prompt   # noqa: E402
+
+            prompt_text = load_prompt(Path(prompts_dir), "search_queries")
+            prompt_text = prompt_text.replace("{max_queries}", str(max_queries))
+
+            gap_list   = "\n".join(f"- {g}" for g in gaps)
+            user_msg   = (
+                f"Page: {page_title or 'General culinary wiki'}\n"
+                f"Search context: {search_suffix}\n\n"
+                f"Raw gap terms:\n{gap_list}"
+            )
+
+            raw = call_gemini(client, gemini_cfg, prompt_text, user_msg)
+
+            # Extract JSON array from response
+            m = re.search(r"\[.*?\]", raw, re.DOTALL)
+            if not m:
+                raise ValueError("No JSON array found in LLM response")
+
+            queries = json.loads(m.group(0))
+            queries = [q.strip() for q in queries if isinstance(q, str) and q.strip()]
+            log.info(f"  [search_crawler] LLM refined to {len(queries)} quer(y/ies)")
+            return queries[:max_queries]
+
+        except Exception as e:
+            log.warning(f"  [search_crawler] LLM query refinement failed ({e}) — using rule-based fallback")
+            anchor = f" {page_title}" if page_title else ""
+            return [f"{g}{anchor} {search_suffix}".strip() for g in gaps[:max_queries]]
 
     # ── Brave Search API ──────────────────────────────────────────────────────
 
