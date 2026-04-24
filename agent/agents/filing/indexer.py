@@ -67,7 +67,9 @@ def _build_index(pages: list[dict]) -> str:
     # Group by category
     by_cat: dict[str, list[dict]] = {}
     for p in pages:
-        cat = p["category"]
+        cat = p.get("category", "other")
+        t = p.get("title", "Untitled")
+        p["title"] = t[0] if isinstance(t, list) and t else str(t)
         by_cat.setdefault(cat, []).append(p)
 
     lines = [
@@ -88,7 +90,7 @@ def _build_index(pages: list[dict]) -> str:
         if not cat_pages:
             continue
 
-        cat_pages_sorted = sorted(cat_pages, key=lambda p: p["title"].lower())
+        cat_pages_sorted = sorted(cat_pages, key=lambda p: str(p.get("title", "")).lower())
         lines.append(f"## {cat_label}")
         lines.append("")
         for p in cat_pages_sorted:

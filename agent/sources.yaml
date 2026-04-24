@@ -81,11 +81,50 @@ sources:
     type: search_result
     crawler: SearchCrawler
     access: verify                    # ALWAYS verify — never auto-ingest
+
+    # Brave API auth
     api_key_env: BRAVE_API_KEY
+
+    # Query construction
     search_suffix: "culinary food science cooking"
-    queries_per_gap: 1
-    max_results: 5
-    max_gaps: 25                      # search the top 25 gap terms
+    queries_per_gap: 1               # queries per gap term (future: >1 for high-signal gaps)
+    max_gaps: 25                     # search the top 25 gap terms
+
+    # Result volume — Brave API hard max is 20
+    max_results: 10
+
+    # Freshness filter (Brave API param) — keeps results current
+    # Values: pd (24h) | pw (7d) | pm (31d) | py (1yr) | YYYY-MM-DDtoYYYY-MM-DD
+    freshness: py
+
+    # Language — restricts results server-side before they reach our filter
+    search_lang: en
+
+    # Domains to skip (merged with built-in list in search_crawler.py)
+    skip_domains:
+      - allrecipes.com               # recipe cards only, no food science depth
+      - foodnetwork.com              # entertainment-focused, low research value
+      - tasteofhome.com
+      - epicurious.com
+      - delish.com
+      - buzzfeed.com
+      - thekitchn.com                # lifestyle-heavy
+      - bonappetit.com               # magazine paywalls, low yield on free tier
+
+    # Domains that indicate high-quality culinary/food-science content
+    # These surface as metadata in leads so the scorer can boost them
+    preferred_domains:
+      - seriouseats.com
+      - chefsteps.com
+      - modernistcuisine.com
+      - sciencedirect.com
+      - tandfonline.com
+      - pubmed.ncbi.nlm.nih.gov
+      - ifst.org                     # Institute of Food Science & Technology
+      - ift.org                      # Institute of Food Technologists
+      - food52.com
+      - cookingissues.com            # Dave Arnold / Booker & Dax
+      - chefsteps.com
 
   # ── Add new sources below ─────────────────────────────────
   # Example — YouTube channel:

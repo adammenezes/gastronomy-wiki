@@ -25,7 +25,7 @@ if str(_AGENT_DIR) not in sys.path:
 from utils import load_config                          # noqa: E402
 from gemini import init_gemini                         # noqa: E402
 from agents.processing.cleaner      import CleanerAgent      # noqa: E402
-from agents.processing.classifier   import ClassifierAgent   # noqa: E402
+from agents.processing.router       import RouterAgent       # noqa: E402
 from agents.processing.writer       import WriterAgent       # noqa: E402
 from agents.processing.standardizer import StandardizerAgent # noqa: E402
 from agents.processing.wiki_linker  import WikiLinkerAgent   # noqa: E402
@@ -58,7 +58,7 @@ class Orchestrator:
 
         std_cfg = cfg.get("standardizer", {})
         self.cleaner      = CleanerAgent(client, _acfg("cleaner"),      prompts_dir)
-        self.classifier   = ClassifierAgent(client, _acfg("classifier"), prompts_dir)
+        self.router       = RouterAgent(client, _acfg("router"),        prompts_dir)
         self.writer       = WriterAgent(client, _acfg("writer"),         prompts_dir, wiki_root)
         self.standardizer = StandardizerAgent(
             client, _acfg("standardizer"), prompts_dir,
@@ -94,59 +94,91 @@ class Orchestrator:
             log.warning(f"Empty or unreadable file skipped: {file_path.name}")
             return False
 
-        # 1. Classify
-        classification = self.classifier.run(raw_text)
-        category   = classification.get("category", "general_note")
-        title      = classification.get("title_suggestion", file_path.stem)
-        confidence = classification.get("confidence", 0.0)
+        # 1. Route & Evaluate
+        routing_plan = self.router.run(raw_text)
+        action = routing_plan.get("action", "reject")
 
-        # 2. Generate wiki page
-        content = self.writer.generate(category, raw_text, source_url=file_path.name)
+        if action == "reject":
+            reason = routing_plan.get("evaluation", {}).get("reasoning", "No reason provided.")
+            log.warning(f"  → Rejected: {reason}")
+            if not self.dry_run:
+                dest = self.cfg["paths"]["inbox"] / "rejected" / file_path.name
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(file_path), str(dest))
+            return False
 
-        # 3. Standardize — check completeness, enrich if needed
-        issues_fixed: list[str] = []
-        if self.standardizer:
-            content, issues_fixed = self.standardizer.run(category, content)
-            if issues_fixed:
-                log.info(f"  → Standardizer fixed {len(issues_fixed)} issue(s).")
+        # 2. Process each item (single or split)
+        items = routing_plan.get("items", [])
+        total_items = len(items)
+        if total_items > 1:
+            log.info(f"  → Splitting into {total_items} separate pages.")
 
-        # 4. WikiLink — dedicated aggressive link-annotation pass
-        content, links_added = self.wiki_linker.run(content)
+        all_pages_updated = 0
+        all_links_added = 0
+        all_issues_fixed = 0
 
-        # 5. Write wiki page
-        wiki_page_path = self.writer.write(category, title, content, self.dry_run)
+        for i, item in enumerate(items):
+            category = item.get("category", "general_note")
+            title = item.get("title_suggestion", f"{file_path.stem}_{i}")
+            chunk = item.get("content_chunk", "")
 
-        # 5. Cross-link existing pages (parallel internally)
-        pages_updated = 0
-        if not self.dry_run:
-            try:
-                pages_updated = self.cross_linker.run(wiki_page_path, content, self.dry_run)
-            except Exception as e:
-                log.error(f"Cross-linking failed for {file_path.name}: {e}", exc_info=True)
+            if not chunk.strip():
+                log.warning(f"  → Empty chunk for '{title}'. Skipping.")
+                continue
 
-        # 6. Archive source file
+            # 2a. Generate wiki page
+            content = self.writer.generate(category, chunk, source_url=file_path.name)
+
+            # 3. Standardize — check completeness, enrich if needed
+            issues_fixed: list[str] = []
+            if self.standardizer:
+                content, issues_fixed = self.standardizer.run(category, content)
+                if issues_fixed:
+                    log.info(f"    → {title}: Standardizer fixed {len(issues_fixed)} issue(s).")
+
+            # 4. WikiLink — dedicated aggressive link-annotation pass
+            content, links_added = self.wiki_linker.run(content)
+
+            # 5. Write wiki page
+            wiki_page_path = self.writer.write(category, title, content, self.dry_run)
+
+            # 6. Cross-link existing pages (parallel internally)
+            pages_updated = 0
+            if not self.dry_run:
+                try:
+                    pages_updated = self.cross_linker.run(wiki_page_path, content, self.dry_run)
+                except Exception as e:
+                    log.error(f"Cross-linking failed for {title}: {e}", exc_info=True)
+
+            # 7. Log
+            self.logger.log_ingest(
+                source_file   = file_path.name,
+                category      = category,
+                title         = title,
+                wiki_page     = str(wiki_page_path.relative_to(self._wiki_root)),
+                pages_updated = pages_updated,
+                issues_fixed  = issues_fixed,
+            )
+
+            all_pages_updated += pages_updated
+            all_links_added += links_added
+            all_issues_fixed += len(issues_fixed)
+
+            log.info(
+                f"    ✓ Wrote '{title}' | "
+                f"standardized {len(issues_fixed)} issue(s) | "
+                f"+{links_added} links | "
+                f"cross-linked {pages_updated} page(s)."
+            )
+
+        # 8. Archive original source file
         if not self.dry_run:
             dest = self.cfg["paths"]["processed"] / file_path.name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(file_path), str(dest))
             log.info(f"  → Archived to processed/")
 
-        # 7. Log
-        self.logger.log_ingest(
-            source_file   = file_path.name,
-            category      = category,
-            title         = title,
-            wiki_page     = str(wiki_page_path.relative_to(self._wiki_root)),
-            pages_updated = pages_updated,
-            issues_fixed  = issues_fixed,
-        )
-
-        log.info(
-            f"  ✓ Done: '{title}' | "
-            f"standardized {len(issues_fixed)} issue(s) | "
-            f"+{links_added} links | "
-            f"cross-linked {pages_updated} page(s)."
-        )
+        log.info(f"  ✓ Finished {file_path.name}: {total_items} items processed.")
         return True
 
     def process_url(self, url: str) -> bool:
@@ -164,52 +196,80 @@ class Orchestrator:
             log.warning(f"No content extracted from URL: {url}")
             return False
 
-        # 1. Classify
-        classification = self.classifier.run(raw_text)
-        category   = classification.get("category", "general_note")
-        title      = classification.get("title_suggestion", "untitled")
-        confidence = classification.get("confidence", 0.0)
+        # 1. Route & Evaluate
+        routing_plan = self.router.run(raw_text)
+        action = routing_plan.get("action", "reject")
 
-        # 2. Generate wiki page
-        content = self.writer.generate(category, raw_text, source_url=url)
+        if action == "reject":
+            reason = routing_plan.get("evaluation", {}).get("reasoning", "No reason provided.")
+            log.warning(f"  → Rejected: {reason}")
+            return False
 
-        # 3. Standardize
-        issues_fixed: list[str] = []
-        if self.standardizer:
-            content, issues_fixed = self.standardizer.run(category, content)
-            if issues_fixed:
-                log.info(f"  → Standardizer fixed {len(issues_fixed)} issue(s).")
+        # 2. Process each item (single or split)
+        items = routing_plan.get("items", [])
+        total_items = len(items)
+        if total_items > 1:
+            log.info(f"  → Splitting into {total_items} separate pages.")
 
-        # 4. WikiLink
-        content, links_added = self.wiki_linker.run(content)
+        all_pages_updated = 0
+        all_links_added = 0
+        all_issues_fixed = 0
 
-        # 5. Write wiki page
-        wiki_page_path = self.writer.write(category, title, content, self.dry_run)
+        for i, item in enumerate(items):
+            category = item.get("category", "general_note")
+            title = item.get("title_suggestion", f"url_ingest_{i}")
+            chunk = item.get("content_chunk", "")
 
-        # 6. Cross-link existing pages
-        pages_updated = 0
-        if not self.dry_run:
-            try:
-                pages_updated = self.cross_linker.run(wiki_page_path, content, self.dry_run)
-            except Exception as e:
-                log.error(f"Cross-linking failed for URL: {e}", exc_info=True)
+            if not chunk.strip():
+                log.warning(f"  → Empty chunk for '{title}'. Skipping.")
+                continue
 
-        # 7. Log (source_file records the URL for provenance)
-        self.logger.log_ingest(
-            source_file   = url,
-            category      = category,
-            title         = title,
-            wiki_page     = str(wiki_page_path.relative_to(self._wiki_root)),
-            pages_updated = pages_updated,
-            issues_fixed  = issues_fixed,
-        )
+            # 2a. Generate wiki page
+            content = self.writer.generate(category, chunk, source_url=url)
 
-        log.info(
-            f"  ✓ Done: '{title}' | "
-            f"standardized {len(issues_fixed)} issue(s) | "
-            f"+{links_added} links | "
-            f"cross-linked {pages_updated} page(s)."
-        )
+            # 3. Standardize
+            issues_fixed: list[str] = []
+            if self.standardizer:
+                content, issues_fixed = self.standardizer.run(category, content)
+                if issues_fixed:
+                    log.info(f"    → {title}: Standardizer fixed {len(issues_fixed)} issue(s).")
+
+            # 4. WikiLink
+            content, links_added = self.wiki_linker.run(content)
+
+            # 5. Write wiki page
+            wiki_page_path = self.writer.write(category, title, content, self.dry_run)
+
+            # 6. Cross-link existing pages
+            pages_updated = 0
+            if not self.dry_run:
+                try:
+                    pages_updated = self.cross_linker.run(wiki_page_path, content, self.dry_run)
+                except Exception as e:
+                    log.error(f"Cross-linking failed for URL: {e}", exc_info=True)
+
+            # 7. Log (source_file records the URL for provenance)
+            self.logger.log_ingest(
+                source_file   = url,
+                category      = category,
+                title         = title,
+                wiki_page     = str(wiki_page_path.relative_to(self._wiki_root)),
+                pages_updated = pages_updated,
+                issues_fixed  = issues_fixed,
+            )
+
+            all_pages_updated += pages_updated
+            all_links_added += links_added
+            all_issues_fixed += len(issues_fixed)
+
+            log.info(
+                f"    ✓ Wrote '{title}' | "
+                f"standardized {len(issues_fixed)} issue(s) | "
+                f"+{links_added} links | "
+                f"cross-linked {pages_updated} page(s)."
+            )
+
+        log.info(f"  ✓ Finished {url}: {total_items} items processed.")
 
         if self.cfg["agent"]["update_index_on_every_run"]:
             self.indexer.run(self.dry_run)

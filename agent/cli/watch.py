@@ -22,7 +22,7 @@ except ImportError:
     print("ERROR: watchdog not installed.\nRun: pip install watchdog")
     sys.exit(1)
 
-_HERE = Path(__file__).resolve().parent
+_HERE = Path(__file__).resolve().parent.parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 

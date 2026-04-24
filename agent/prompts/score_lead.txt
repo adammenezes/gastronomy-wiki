@@ -36,13 +36,27 @@ How directly this source fills an identified wiki gap.
 
 ---
 
+Also classify the CONTENT TYPE of this URL:
+
+- "article"   — a substantive, readable web page or paper with ingestible text content
+- "hub_page"  — an index, chapter list, table of contents, tag/category page, or navigation page; the real content is one level deeper (e.g. /books/x/chapters/, /volumes/, /category/x)
+- "book_ref"  — a landing or product page for a physical book, print publication, or commercial product that cannot be directly ingested (e.g. modernistcuisine.com/books/modernist-bread/)
+- "podcast"   — primarily audio or video media with no substantial text to ingest
+- "unknown"   — cannot determine from the available metadata
+
+---
+
 Return ONLY a JSON object in this exact format (no markdown, no explanation outside the JSON):
 
 {
   "quality_score": 7.5,
   "relevance_score": 8.0,
+  "content_type": "article",
   "fills_gap": "one short phrase naming the gap this fills, e.g. 'Maillard reaction chemistry'",
   "justification": "2–3 sentences explaining your scores. Name specific evidence of quality (peer-reviewed, citation count, author credentials) and which wiki gap this fills and why it matters."
 }
 
 Be honest. A quality score below 4.0 means the source is not suitable for this wiki regardless of relevance.
+For hub_page types, quality and relevance scores still apply to the *subject matter* implied by the URL, but content_type signals that the URL itself is not directly ingestible.
+
+CRITICAL: This wiki ONLY uses free, publicly accessible online sources. If a source is a physical book, a commercial product, a podcast/video, or obviously paywalled, its Quality Score MUST be 0.

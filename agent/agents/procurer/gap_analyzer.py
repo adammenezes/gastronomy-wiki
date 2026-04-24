@@ -35,17 +35,31 @@ _STOP_WORDS = {
 # Single-word WikiLinks that are too generic to be useful procurement targets.
 # These are real culinary concepts but too broad to search for specifically.
 _WIKILINK_NOISE = {
+    # Generic cooking actions / tools
     "cook", "cooks", "cooking", "boil", "boiling", "heat", "heated",
     "pan", "pot", "water", "salt", "sauce", "dish", "dishes", "meal",
     "meals", "food", "foods", "ingredient", "ingredients", "recipe",
     "recipes", "flavor", "flavour", "taste", "method", "methods",
     "technique", "techniques", "process", "step", "steps", "time",
-    "minutes", "heat", "temperature", "oil", "butter", "stock", "broth",
+    "minutes", "temperature", "oil", "butter", "stock", "broth",
     "mix", "stir", "add", "serve", "season", "use", "place", "put",
     "cut", "slice", "chop", "dice", "type", "types", "form", "forms",
     "home", "kitchen", "chef", "chefs", "professional", "classic",
     "basic", "simple", "quick", "easy", "best", "good", "great",
+    # Generic nutrition / biology terms (too broad without a specific subject)
+    "nutrients", "nutrition", "vitamins", "minerals", "protein", "fiber",
+    "starch", "sugar", "carbs", "fat", "fats", "calories", "energy",
+    "digestion", "absorption", "metabolism", "antioxidants",
+    # Generic processing / structural terms
+    "processing", "milling", "grinding", "flaking", "sprouting",
+    "rinsing", "soaking", "hulling", "steaming", "drying", "refining",
+    "bran", "germ", "husk", "hull", "endosperm", "groats",
+    # Overly broad food categories (specific named grains like Corn, Oats, Rice,
+    # Wheat, Quinoa, Farro are intentionally NOT here — they are valid targets)
+    "grains", "cereals", "breads", "cakes", "pastries", "snacks",
+    "berries", "sprouts", "syrup", "flour", "meal",
 }
+
 
 _WIKILINK_MIN_CHARS   = 5    # skip links shorter than this
 _WIKILINK_MIN_WORDS   = 2    # single-word links need extra vetting (see above)
@@ -110,40 +124,66 @@ class GapAnalyzer:
                     result.append(g)
         return result
 
+    # ── Public helpers ─────────────────────────────────────────────────────────
+
+    def filter_wikilinks(
+        self,
+        links: list[str],
+        existing_titles: set[str] | None = None,
+    ) -> list[str]:
+        """
+        Apply the canonical wikilink noise filter to a flat list of link strings.
+
+        Shared by:
+          - _broken_wikilinks()  (full GapAnalyzer wiki-wide run)
+          - _gaps_from_page()    (procure.py --page mode)
+
+        Filters applied (in order):
+          1. Deduplicate (case-insensitive)
+          2. Skip links that already have a wiki page  (if existing_titles given)
+          3. Skip links shorter than _WIKILINK_MIN_CHARS characters
+          4. Skip links with no alphabetic character (pure numbers/symbols)
+          5. Skip single-word links in _WIKILINK_NOISE (too generic to source)
+        """
+        existing = existing_titles or set()
+        seen:   set[str]  = set()
+        result: list[str] = []
+
+        for link in links:
+            link = link.strip()
+            key  = link.lower()
+
+            if not key or key in seen:
+                continue
+            if key in existing:
+                continue
+            if len(link) < _WIKILINK_MIN_CHARS:
+                continue
+            if not re.search(r"[a-zA-Z]", link):
+                continue
+
+            words = link.split()
+            if len(words) == 1 and key in _WIKILINK_NOISE:
+                continue
+
+            seen.add(key)
+            result.append(link)
+
+        return result
+
     # ── Method 1 ──────────────────────────────────────────────────────────────
 
     def _broken_wikilinks(self, pages: list[dict], existing_titles: set[str]) -> list[str]:
         """
         Find [[WikiLink]] references pointing to non-existent pages.
-
-        Noise filters applied:
-          - Skip links shorter than _WIKILINK_MIN_CHARS characters
-          - Skip single-word links in _WIKILINK_NOISE (too generic to source)
-          - Skip pure-digit or punctuation-only links
+        Delegates noise filtering to filter_wikilinks() — the canonical filter.
         """
-        broken: list[str] = []
-        seen:   set[str]  = set()
+        raw: list[str] = []
         for page in pages:
             content = page.get("content", "")
             links = re.findall(r"\[\[([^\]|#\n]+?)(?:\|[^\]]*)?\]\]", content)
-            for link in links:
-                link = link.strip()
-                key  = link.lower()
-
-                if key in existing_titles or key in seen:
-                    continue
-                if len(link) < _WIKILINK_MIN_CHARS:
-                    continue
-                if not re.search(r"[a-zA-Z]", link):   # skip pure numbers/symbols
-                    continue
-
-                words = link.split()
-                if len(words) == 1 and key in _WIKILINK_NOISE:
-                    continue
-
-                seen.add(key)
-                broken.append(link)
-        return broken
+            raw.extend(link.strip() for link in links)
+        return self.filter_wikilinks(raw, existing_titles)
 
     # ── Method 2 ──────────────────────────────────────────────────────────────
 

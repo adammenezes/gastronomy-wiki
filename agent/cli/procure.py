@@ -20,7 +20,7 @@ import logging
 import argparse
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
+_HERE = Path(__file__).resolve().parent.parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
@@ -69,22 +69,39 @@ def _print_estimate(n_leads: int, n_sources: int, approval_rate: float = 0.10):
     print(f"-------------------------------------------------\n")
 
 
-def _gaps_from_page(page_path: str) -> list[str]:
-    """Extract [[WikiLink]] targets from a wiki page as a gap list."""
+def _gaps_from_page(page_path: str, wiki_root: Path) -> list[str]:
+    """
+    Extract [[WikiLink]] targets from a wiki page and apply the canonical
+    GapAnalyzer noise filter — the same filter used in a full wiki-wide run.
+
+    Filters applied (via GapAnalyzer.filter_wikilinks):
+      - Already has a wiki page  → skip
+      - Shorter than 5 chars     → skip
+      - Pure numbers/symbols     → skip
+      - Single-word noise term   → skip (see _WIKILINK_NOISE in gap_analyzer.py)
+    """
+    from agents.procurer.gap_analyzer import GapAnalyzer  # noqa: E402
+
     path = Path(page_path)
     if not path.exists():
         print(f"ERROR: File not found: {page_path}")
         sys.exit(1)
-    text    = path.read_text(encoding="utf-8")
-    targets = re.findall(r"\[\[([^\]|]+)", text)
-    seen:    set[str]  = set()
-    gaps:    list[str] = []
-    for t in targets:
-        key = t.strip()
-        if key and key not in seen:
-            seen.add(key)
-            gaps.append(key)
-    return gaps
+
+    text  = path.read_text(encoding="utf-8")
+    raw   = re.findall(r"\[\[([^\]|]+)", text)
+    links = [t.strip() for t in raw if t.strip()]
+
+    # Build the set of existing wiki page titles (same as GapAnalyzer does)
+    existing_titles: set[str] = set()
+    for md in wiki_root.rglob("*.md"):
+        existing_titles.add(md.stem.lower())
+
+    # Instantiate with a dummy taxonomy path (not needed for filter_wikilinks)
+    analyzer = GapAnalyzer(wiki_root, wiki_root / "taxonomy.yaml")
+    filtered = analyzer.filter_wikilinks(links, existing_titles)
+
+    return filtered
+
 
 
 def main():
@@ -196,11 +213,12 @@ def main():
     # ── --page: extract WikiLinks as gap list ────────────────────────────────
     page_gaps = None
     if args.page:
-        page_gaps = _gaps_from_page(args.page)
+        page_gaps = _gaps_from_page(args.page, wiki_root)
         if not page_gaps:
-            print(f"ERROR: No [[WikiLinks]] found in '{args.page}'")
+            print(f"ERROR: No usable [[WikiLinks]] found in '{args.page}' after noise filtering")
             sys.exit(1)
-        print(f"  --page mode: {len(page_gaps)} gap(s) extracted from {args.page}")
+        print(f"  --page mode: {len(page_gaps)} gap(s) extracted from {args.page} (after noise filter)")
+
 
     # ── optional --lint to enrich gap list ────────────────────────────────────
     lint_report = None

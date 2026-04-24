@@ -21,8 +21,8 @@ Run in this order for every file or URL ingested.
 First step. Extracts clean text from any raw input — PDF, URL, YouTube, plain text — stripping boilerplate before anything else touches it. Never writes files; returns a string. Falls back to raw text if extraction fails so the pipeline never hard-stops.
 - **Gemini calls:** 1 (boilerplate removal). YouTube with no transcript: 1 video call.
 
-### `classifier.py` — ClassifierAgent
-Reads cleaned text and returns two things: a **category** (recipe, ingredient, technique, cuisine, tool, person, safety, management, science, other) and a suggested **wiki page title**. Drives which extract prompt and which subfolder the writer uses.
+### `router.py` — RouterAgent
+Replaces the old classifier. Reads cleaned text and returns a strict JSON routing plan based on a Substance Score (0-10). It acts as a quality gatekeeper: automatically rejecting low-substance fluff (like sitemaps or marketing filler), and intelligently splitting dense "hub" articles into multiple distinct pages (1-to-N). Returns categories and suggested wiki titles for accepted content.
 - **Gemini calls:** 1
 
 ### `writer.py` — WriterAgent
@@ -42,8 +42,8 @@ Dedicated link-annotation pass after the writer and standardizer. Aggressively w
 ## `filing/` — Wiki Structure
 
 ### `cross_linker.py` — CrossLinkerAgent
-After a new page is written, finds existing pages that mention the new page's title terms but don't already link to it, then inserts the `[[WikiLink]]` into each one in parallel. Uses a Python keyword filter first (zero cost) to narrow candidates before any Gemini calls.
-- **Gemini calls:** 0–N (one per page updated, capped at 5 parallel)
+After a new page is written, finds existing pages that mention the new page's title terms but don't already link to it. Uses a zero-cost Python keyword filter to isolate the specific paragraph where the term is mentioned. It then passes *only* that paragraph to Gemini across 10 parallel threads to insert the `[[WikiLink]]` without altering the prose.
+- **Gemini calls:** 0–N (one per candidate updated, capped at 12 candidates, up to 10 parallel workers)
 
 ### `logger.py` — LoggerAgent
 Appends a timestamped entry to `wiki/log.md` after each ingest, query, or lint run. Pure Python — no Gemini calls.
@@ -59,7 +59,7 @@ Regenerates `wiki/index.md` from the current vault state by reading each page's 
 
 ### `query_agent.py` — QueryAgent
 Answers natural-language questions from wiki content. Uses a three-layer hybrid retrieval: keyword scoring → category/intent boost → WikiLink graph expansion (follows `[[links]]` from top seed pages). Passes up to 15 context pages to Gemini for synthesis. Emits a `NEEDS_RESEARCH:` signal if the wiki has a gap.
-- **CLI:** `python agent/query.py "your question"`
+- **CLI:** `python agent/cli/query.py "your question"`
 - **Gemini calls:** 1
 
 ---
@@ -70,12 +70,12 @@ Both agents are also callable via `orchestrator.lint()` / `orchestrator.sort()` 
 
 ### `lint_agent.py` — LintAgent
 Health check on the full vault. Identifies orphan pages, stubs, missing cross-references, topic gaps, and contradictions. Returns structured JSON. Called by `procure.py --lint` to seed gap analysis with real vault issues.
-- **CLI:** `python agent/lint.py` / `python agent/lint.py --json`
+- **CLI:** `python agent/cli/lint.py` / `python agent/cli/lint.py --json`
 - **Gemini calls:** 1
 
 ### Sort — `orchestrator.sort()`
 Moves misplaced wiki root files to their correct subfolders based on frontmatter tags. Detects and optionally deletes garbled files (Gemini error messages saved as page content). Triggered automatically after `procure.py --approve` and `compile.py` batch runs; also runnable standalone.
-- **CLI:** `python agent/sort.py` (dry-run) / `python agent/sort.py --apply`
+- **CLI:** `python agent/cli/sort.py` (dry-run) / `python agent/cli/sort.py --apply`
 - **Gemini calls:** 0
 
 ---
@@ -83,5 +83,5 @@ Moves misplaced wiki root files to their correct subfolders based on frontmatter
 ## `procurer/` — Procurement
 
 Full pipeline: GapAnalyzer → Crawlers → Deduplicator → LeadScorer → LeadsWriter.
-- **CLI:** `python agent/procure.py`
+- **CLI:** `python agent/cli/procure.py`
 - Crawlers available: `WebCrawler`, `JournalScraper`, `MultiLinkCrawler`

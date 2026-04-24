@@ -5,12 +5,16 @@ Full flow:
   1. GapAnalyzer   → identifies under-covered topics (5 methods)
   2. Crawlers      → discover leads from all configured sources (parallel)
   3. Deduplicator  → removes URLs already in log.md or prior leads.md
-  4. LeadScorer    → Gemini quality + relevance scoring (parallel)
-  5. LeadsWriter   → writes inbox/leads.md for human review
+  4. LeadScorer    → Gemini quality + relevance + content_type scoring (parallel)
+  5. HubExpander   → HTTP-only link extraction from hub_page leads (no Brave quota)
+  6. LeadScorer    → re-scores hub children (merged + re-sorted)
+  7. LeadsWriter   → writes inbox/leads.md for human review
+                     (paywalled leads excluded; hub_page and book_ref in separate sections)
 
 Approve flow (--approve):
-  - Free leads    → passed directly to Orchestrator.process_url()
-  - Paywalled     → printed as a manual-download list
+  - Free articles  → passed directly to Orchestrator.process_url()
+  - Hub pages      → expand_all_hubs() then ingest children
+  - Paywalled      → excluded from leads.md entirely
 """
 
 import logging
@@ -29,6 +33,7 @@ from .gap_analyzer      import GapAnalyzer      # noqa: E402
 from .scorer            import LeadScorer       # noqa: E402
 from .deduplicator      import Deduplicator     # noqa: E402
 from .leads_writer      import LeadsWriter      # noqa: E402
+from .hub_expander      import expand_all_hubs  # noqa: E402
 from .crawlers.web_crawler        import WebCrawler        # noqa: E402
 from .crawlers.journal_scraper    import JournalScraper    # noqa: E402
 from .crawlers.multi_link_crawler import MultiLinkCrawler  # noqa: E402
@@ -109,6 +114,18 @@ class ProcurementAgent:
 
         scored_leads = self.scorer.score_all(fresh_leads, gaps, gaps_by_signal=gaps_by_signal)
 
+        # ── Hub expansion (HTTP-only, no Brave quota) ────────────────────────
+        known_urls  = {l.url for l in scored_leads}
+        child_leads = expand_all_hubs(scored_leads, known_urls)
+        if child_leads:
+            scored_children = self.scorer.score_all(child_leads, gaps, gaps_by_signal=gaps_by_signal)
+            scored_leads    = sorted(
+                scored_leads + scored_children,
+                key=lambda l: l.combined_score,
+                reverse=True,
+            )
+            log.info(f"[procurer] After hub expansion: {len(scored_leads)} total scored lead(s).")
+
         out_path = self.leads_writer.write(scored_leads, gaps)
         log.info(f"[procurer] Done. Leads at: {out_path}")
         return out_path
@@ -119,8 +136,9 @@ class ProcurementAgent:
         """
         Parse leads.md for entries the user has marked [x], then process them.
 
-        Free leads  → orchestrator.process_url()
-        Paywalled   → printed for manual download
+        Free articles  → orchestrator.process_url()
+        Verify leads   → print compile.py command for each
+        Hub pages      → HTTP expansion + ingest child article links
         Returns count of successfully ingested leads.
         """
         leads_path = self.inbox_root / "leads.md"
@@ -136,31 +154,44 @@ class ProcurementAgent:
             return 0
 
         log.info(f"[procurer] Approving {len(approved)} lead(s)…")
-        ingested: list[dict] = []
-        manual:   list[dict] = []
-
-        verify_leads: list[dict] = []
+        ingested:      list[dict] = []
+        verify_leads:  list[dict] = []
+        hub_leads:     list[dict] = []
 
         for lead in approved:
-            if lead["access"] == "free":
+            ct = lead.get("content_type", "article")
+            if ct == "hub_page":
+                hub_leads.append(lead)
+            elif lead["access"] == "free":
                 try:
                     ok = orchestrator.process_url(lead["url"])
                     if ok:
                         ingested.append(lead)
                 except Exception as e:
                     log.error(f"  [procurer] Failed to ingest {lead['url']}: {e}")
-            elif lead["access"] == "verify":
-                verify_leads.append(lead)
             else:
-                manual.append(lead)
+                verify_leads.append(lead)
 
-        if manual:
-            print("\n-- Manual download required (paywalled / library) --")
-            for lead in manual:
-                print(f"  {lead['title']}")
-                print(f"  {lead['url']}")
-                print(f"  → Download PDF → drop in inbox/")
-                print()
+        # Hub page expansion on approve
+        if hub_leads:
+            print("\n-- Hub page expansion --")
+            from .hub_expander import expand_hub, Lead as _Lead
+            for hub in hub_leads:
+                stub = _Lead(
+                    url=hub["url"], title=hub["title"],
+                    source_name="hub_expansion", source_type="web_article",
+                    access="verify", content_preview="",
+                    combined_score=99.0,   # always expand approved hubs
+                )
+                children = expand_hub(stub)
+                print(f"  {hub['url']} → {len(children)} child link(s)")
+                for child in children:
+                    try:
+                        ok = orchestrator.process_url(child.url)
+                        if ok:
+                            ingested.append({"url": child.url, "title": child.title})
+                    except Exception as e:
+                        log.warning(f"    Failed to ingest child {child.url}: {e}")
 
         if verify_leads:
             print("\n-- Search discoveries — verify each URL before ingesting --")
@@ -174,6 +205,7 @@ class ProcurementAgent:
             self._mark_ingested(leads_path, {l["url"] for l in ingested})
 
         return len(ingested)
+
 
     # ── Crawling ──────────────────────────────────────────────────────────────
 
@@ -258,10 +290,19 @@ class ProcurementAgent:
             else:
                 access = "paywalled"
 
+            content_type = "article"
+            if re.search(r"\*\*Type:\*\*\s*hub_page", section, re.IGNORECASE):
+                content_type = "hub_page"
+            elif re.search(r"\*\*Type:\*\*\s*book reference", section, re.IGNORECASE):
+                content_type = "book_ref"
+            elif re.search(r"\*\*Type:\*\*\s*podcast", section, re.IGNORECASE):
+                content_type = "podcast"
+
             approved.append({
-                "title":  title_match.group(1).strip() if title_match else "unknown",
-                "url":    url_match.group(1).strip(),
-                "access": access,
+                "title":        title_match.group(1).strip() if title_match else "unknown",
+                "url":          url_match.group(1).strip(),
+                "access":       access,
+                "content_type": content_type,
             })
 
         return approved

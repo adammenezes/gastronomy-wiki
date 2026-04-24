@@ -70,6 +70,9 @@ def call_gemini(
         temperature=gemini_cfg["temperature"],
         max_output_tokens=gemini_cfg["max_output_tokens"],
     )
+    if "response_mime_type" in gemini_cfg:
+        cfg_kwargs["response_mime_type"] = gemini_cfg["response_mime_type"]
+
     # thinking_budget: 0 disables internal reasoning (saves tokens for structured JSON tasks)
     if "thinking_budget" in gemini_cfg:
         cfg_kwargs["thinking_config"] = genai_types.ThinkingConfig(
@@ -81,6 +84,9 @@ def call_gemini(
         contents=full_prompt,
         config=genai_types.GenerateContentConfig(**cfg_kwargs),
     )
+    if not response.text:
+        log.warning("Gemini returned empty or blocked response.")
+        return ""
     return response.text.strip()
 
 

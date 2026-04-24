@@ -16,7 +16,7 @@ import argparse
 from pathlib import Path
 
 # Allow importing sibling modules from agent/
-_HERE = Path(__file__).resolve().parent
+_HERE = Path(__file__).resolve().parent.parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 

@@ -1,5 +1,5 @@
 """
-Lead Scorer — Gemini evaluates quality and relevance of each lead.
+Lead Scorer — Gemini evaluates quality, relevance, and content type of each lead.
 
 Quality rubric (0–10):
   - Subject matter expertise of author / institution
@@ -11,6 +11,13 @@ Quality rubric (0–10):
 Relevance rubric (0–10):
   - How directly the lead fills identified wiki gaps
 
+Content type (classified by Gemini):
+  - article   → substantive ingestible text
+  - hub_page  → index/nav/chapter-list; real content is one level deeper
+  - book_ref  → physical book or product landing page; not directly ingestible
+  - podcast   → audio/video media; no text to ingest
+  - unknown   → Gemini could not determine from available metadata
+
 Combined score = (quality × 0.6) + (relevance × 0.4)
 Leads below MIN_QUALITY are silently dropped in LeadsWriter.
 """
@@ -21,6 +28,7 @@ import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from urllib.parse import urlparse
 
 _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
@@ -36,6 +44,32 @@ MAX_WORKERS    = 5
 PREVIEW_CHARS  = 1500   # cap content sent to Gemini per lead
 MAX_GAPS_CHARS = 600    # cap on gap list sent per scoring call
 
+# Domains that are structurally paywalled regardless of Brave's flag.
+# Brave's isAccessibleForFree is unreliable for these — their abstract pages
+# look open but the full paper is behind an institutional login.
+_STRUCTURAL_PAYWALL_DOMAINS = {
+    "springer.com", "link.springer.com",
+    "sciencedirect.com", "linkinghub.elsevier.com",
+    "onlinelibrary.wiley.com", "wiley.com",
+    "tandfonline.com",
+    "jstor.org",
+    "nature.com",                   # most full articles require institutional access
+    "cell.com",
+    "jamanetwork.com",
+    "nejm.org",
+    "thelancet.com",
+    "oxfordjournals.org",
+    "academic.oup.com",
+    "journals.sagepub.com",
+    "ingentaconnect.com",
+    "pubs.rsc.org",
+    "acs.org", "pubs.acs.org",
+    "science.org", "sciencemag.org",
+    "cambridge.org",
+    "emerald.com",
+    "informahealthcare.com",
+}
+
 # Proportion of the gap budget drawn from each signal type.
 # Must sum to 1.0. Taxonomy gets the biggest slice because it represents
 # the broadest set of topics the wiki should cover.
@@ -45,6 +79,8 @@ _GAP_WEIGHTS = {
     "frequency": 0.15,
     "taxonomy":  0.45,
 }
+
+_VALID_CONTENT_TYPES = {"article", "hub_page", "book_ref", "podcast", "unknown"}
 
 
 def _sample_gaps(gaps_by_signal: dict[str, list[str]], max_chars: int = MAX_GAPS_CHARS) -> str:
@@ -75,6 +111,24 @@ def _sample_gaps(gaps_by_signal: dict[str, list[str]], max_chars: int = MAX_GAPS
     return summary[:max_chars] if summary else "general culinary knowledge"
 
 
+def _apply_structural_paywall(lead: Lead) -> None:
+    """
+    Layer 2 paywall detection: mark leads as paywalled when their domain is
+    known to be structurally paywalled, even if Brave didn't flag it.
+    Does nothing if the lead is already marked paywalled.
+    """
+    if lead.access == "paywalled":
+        return
+    try:
+        domain = urlparse(lead.url).netloc.lower().lstrip("www.")
+    except Exception:
+        return
+    for paywall_domain in _STRUCTURAL_PAYWALL_DOMAINS:
+        if domain == paywall_domain or domain.endswith("." + paywall_domain):
+            lead.access = "paywalled"
+            return
+
+
 class LeadScorer:
     def __init__(self, client, gemini_cfg: dict, prompts_dir: Path):
         self.client     = client
@@ -94,6 +148,16 @@ class LeadScorer:
         """
         if not leads:
             return []
+
+        # Layer 2: apply structural paywall before scoring
+        paywalled_count = 0
+        for lead in leads:
+            before = lead.access
+            _apply_structural_paywall(lead)
+            if lead.access != before:
+                paywalled_count += 1
+        if paywalled_count:
+            log.info(f"  [scorer] Structural paywall: {paywalled_count} lead(s) re-classified as paywalled.")
 
         if gaps_by_signal:
             gaps_summary = _sample_gaps(gaps_by_signal)
@@ -145,5 +209,8 @@ class LeadScorer:
             lead.combined_score   = round(
                 (lead.quality_score * 0.6) + (lead.relevance_score * 0.4), 2
             )
+            # Layer 3: Gemini content type classification
+            raw_ct = data.get("content_type", "unknown")
+            lead.content_type = raw_ct if raw_ct in _VALID_CONTENT_TYPES else "unknown"
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             log.warning(f"  [scorer] Could not parse score for '{lead.title}': {e}")

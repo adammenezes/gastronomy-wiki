@@ -33,13 +33,13 @@ TOOLS & EQUIPMENT
   Every appliance:                [[Stand Mixer]], [[Immersion Blender]], [[Thermometer]]
 
 DISHES & CUISINES
-  Every dish mentioned:           [[Cacio e Pepe]], [[Amatriciana]], [[Gricia]], [[Risotto]]
-  Every cuisine:                  [[Roman Cuisine]], [[Italian Cuisine]], [[French Cuisine]]
-  Every meal course or category:  [[Primo]], [[Antipasto]], [[Dessert]], [[Sauce]]
+  Every dish mentioned:           [[Beef Bourguignon]], [[Pad Thai]], [[Mole Negro]], [[Bibimbap]], [[Tagine]], [[Pho]], [[Biryani]], [[Ramen]]
+  Every cuisine:                  [[French Cuisine]], [[Japanese Cuisine]], [[Mexican Cuisine]], [[Chinese Cuisine]], [[Indian Cuisine]], [[Thai Cuisine]], [[Middle Eastern Cuisine]], [[Korean Cuisine]]
+  Every meal course or category:  [[Appetiser]], [[Starter]], [[Main Course]], [[Side Dish]], [[Dessert]], [[Condiment]], [[Sauce]], [[Broth]], [[Street Food]], [[Marinade]]
 
 PEOPLE & PLACES
-  Every chef or food writer:      [[Marcella Hazan]], [[Auguste Escoffier]], [[Heston Blumenthal]]
-  Every region or place:          [[Rome]], [[Lazio]], [[Lyon]], [[Emilia-Romagna]]
+  Every chef or food writer:      [[Julia Child]], [[Auguste Escoffier]], [[Nobu Matsuhisa]], [[Diana Kennedy]], [[Yotam Ottolenghi]], [[Fuchsia Dunlop]], [[Jacques Pépin]]
+  Every region or place:          [[Sichuan]], [[Oaxaca]], [[Lyon]], [[Provence]], [[Osaka]], [[Marrakech]], [[Kerala]], [[Istanbul]], [[New Orleans]]
 
 ━━━ LINKING RULES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

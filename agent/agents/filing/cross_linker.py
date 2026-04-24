@@ -30,7 +30,7 @@ from utils import load_prompt, collect_wiki_pages  # noqa: E402
 
 log = logging.getLogger("cooking-brain.cross_linker")
 
-_MAX_UPDATE_WORKERS = 5   # parallel page-update calls
+_MAX_UPDATE_WORKERS = 10   # parallel page-update calls
 _MAX_CANDIDATES     = 12  # cap to avoid runaway updates on very generic titles
 
 # Common words that are too generic to use as search terms
@@ -89,20 +89,37 @@ class CrossLinkerAgent:
                 log.debug(f"  [cross_linker] {link_text} already in {file_key}")
                 return False
 
+            # Isolate paragraph
+            # We split by \n\n but keep the delimiters so we can stitch it back exactly.
+            blocks = re.split(r'(\n{2,})', existing_content)
+            target_block_idx = -1
+            target_block_text = ""
+            
+            for idx, block in enumerate(blocks):
+                if idx % 2 == 0:  # Text blocks (delimiters are at odd indices)
+                    if any(term in block.lower() for term in search_terms):
+                        target_block_idx = idx
+                        target_block_text = block
+                        break
+            
+            if target_block_idx == -1:
+                log.warning(f"  [cross_linker] Could not locate keyword block in {file_key}.")
+                return False
+
             reason = (
-                f"This page mentions '{title}' — add {link_text} where it first appears."
+                f"This paragraph mentions '{title}' — add {link_text} where it first appears."
             )
             update_input = (
-                f"EXISTING PAGE:\n{existing_content}\n\n"
+                f"PARAGRAPH TO UPDATE:\n{target_block_text}\n\n"
                 f"NEW LINK TO ADD:\n{link_text}\n\n"
                 f"REASON:\n{reason}"
             )
-            updated_content = call_gemini(
+            updated_block = call_gemini(
                 self.client, self.gemini_cfg, self._update_prompt, update_input
-            )
+            ).strip()
 
             # Safety: only [[brackets]] may be added — no prose changes allowed
-            if _delinked(updated_content) != _delinked(existing_content):
+            if _delinked(updated_block) != _delinked(target_block_text.strip()):
                 log.warning(
                     f"  [cross_linker] Prose altered in {file_key} — skipping."
                 )
@@ -111,6 +128,10 @@ class CrossLinkerAgent:
             if dry_run:
                 log.info(f"  [cross_linker] [DRY RUN] Would update: {file_key}")
                 return True
+
+            # Stitch back
+            blocks[target_block_idx] = updated_block
+            updated_content = "".join(blocks)
 
             page_path.write_text(updated_content, encoding="utf-8")
             log.info(f"  [cross_linker] Updated: {file_key}")
