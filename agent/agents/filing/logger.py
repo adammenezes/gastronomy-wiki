@@ -30,9 +30,13 @@ class LoggerAgent:
     def __init__(self, wiki_root: Path):
         self.log_path = wiki_root / "log.md"
         if not self.log_path.exists():
-            self.log_path.write_text(_HEADER, encoding="utf-8")
+            try:
+                self.log_path.write_text(_HEADER, encoding="utf-8")
+            except OSError as e:
+                log.warning(f"Could not initialize log file (read-only filesystem?): {e}")
 
     # ── Public entry points ───────────────────────────────────────────────────
+
 
     def log_ingest(
         self,
@@ -91,6 +95,9 @@ class LoggerAgent:
         return datetime.now().strftime("%Y-%m-%d %H:%M")
 
     def _append(self, text: str):
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(text)
-        log.debug("Log entry written.")
+        try:
+            with open(self.log_path, "a", encoding="utf-8") as f:
+                f.write(text)
+            log.debug("Log entry written.")
+        except OSError as e:
+            log.warning(f"Could not write log entry (read-only filesystem?): {e}")

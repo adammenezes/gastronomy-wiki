@@ -35,8 +35,7 @@ Thumbs.db
 .obsidian/local
 .cache/
 
-# Local-only content (wiki lives on disk, not in git)
-wiki/
+# Inbox artifacts (not committed)
 inbox/leads.md
 inbox/processed/
 inbox/urls.txt

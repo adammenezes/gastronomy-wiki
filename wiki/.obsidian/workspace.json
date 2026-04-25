@@ -1,0 +1,220 @@
+{
+  "main": {
+    "id": "1646c2bc4dd0753a",
+    "type": "split",
+    "children": [
+      {
+        "id": "b2fde3163e12111e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "0b82387e25496fc8",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "cuisines/a-story-as-old-as-cha-gio-vietnamese-culinary-roots-in-postwar-america.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "a-story-as-old-as-cha-gio-vietnamese-culinary-roots-in-postwar-america"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "5913af7067517e42",
+    "type": "split",
+    "children": [
+      {
+        "id": "7bd35cead20d5ed9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "67280517fe99a41f",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "ab7f4c2b3888f26b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "b0a9fdf74302f2ab",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 245.5
+  },
+  "right": {
+    "id": "4900d7efadcb0de1",
+    "type": "split",
+    "children": [
+      {
+        "id": "faf151bf436a4961",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "debd031f2a620489",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "log.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for log"
+            }
+          },
+          {
+            "id": "9d89df1153eed998",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "log.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from log"
+            }
+          },
+          {
+            "id": "b5bae407fc06e3f6",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "e98b48ae2d1d0ba3",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "d582771a6fa999ce",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "log.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of log"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "0b82387e25496fc8",
+  "lastOpenFiles": [
+    "ingredients/modern-food-production-and-sourcing-concepts.md",
+    "process.md",
+    "recipes/french-onion-soup.md",
+    "recipes/blitz-puff-pastry-recipe-rough-puff-pastry.md",
+    "recipes/traditional-puff-pastry-dough-recipe.md",
+    "techniques/emulsification.md",
+    "ingredients/a-guide-to-rice.md",
+    "ingredients/understanding-eggs.md",
+    "ingredients/grains-an-overview.md",
+    "techniques/sachet-dépice-and-bouquet-garni.md",
+    "cuisines/secrets-of-ligurian-pesto.md",
+    "techniques/cutlery-honing-sharpening.md",
+    "techniques/laminated-dough-technique-and-principles.md",
+    "science/the-future-of-food-cultured-and-plant-based-meat-alternatives.md",
+    "techniques/plate-presentations.md",
+    "techniques/cartouche.md",
+    "techniques/clarified-butter.md",
+    "techniques/prepping-avocado.md",
+    "recipes/basic-baguette-recipe.md",
+    "techniques/the-nine-stages-of-yeast-bread-production.md",
+    "techniques/prepping-mango-pineapple-and-melon.md",
+    "techniques/autolyse-technique-in-bread-making.md",
+    "science/apples-and-enzymatic-browning.md",
+    "techniques/levain-sourdough-starter-creation-and-maintenance.md",
+    "science/yeast-doughs-fundamentals-and-science.md",
+    "techniques/citrus-zest-and-supremes.md",
+    "logs",
+    "other",
+    "science",
+    "management",
+    "safety"
+  ]
+}

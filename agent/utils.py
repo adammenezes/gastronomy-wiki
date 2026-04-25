@@ -93,6 +93,8 @@ def collect_wiki_pages(wiki_root: Path, include_content: bool = False) -> list[d
     Walk the wiki directory and return metadata (and optionally content) for
     every page except index.md and log.md.
     """
+    if not wiki_root.exists():
+        return []
     pages = []
     for md_file in sorted(wiki_root.rglob("*.md")):
         if md_file.name in ("index.md", "log.md"):
