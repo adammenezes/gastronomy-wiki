@@ -396,26 +396,26 @@ def run_static(cfg: dict, thresholds: dict, verbose: bool):
 # ── Live mode ─────────────────────────────────────────────────────────────────
 
 def run_live(cfg: dict, thresholds: dict, verbose: bool, test_files: list[Path]):
-    from gemini import init_gemini
+    from llm import init_llm
     from agents.classifier   import ClassifierAgent
     from agents.writer       import WriterAgent
     from agents.standardizer import StandardizerAgent
     from agents.wiki_linker  import WikiLinkerAgent
 
-    client     = init_gemini(cfg)
-    gemini_cfg = cfg["gemini"]
+    client     = init_llm(cfg)
+    llm_cfg = cfg["llm"]
     pdir       = cfg["paths"]["prompts"]
     wiki_root  = cfg["paths"]["wiki"]
     std_cfg    = cfg.get("standardizer", {})
 
-    classifier   = ClassifierAgent(client, gemini_cfg, pdir)
-    writer       = WriterAgent(client, gemini_cfg, pdir, wiki_root)
+    classifier   = ClassifierAgent(client, llm_cfg, pdir)
+    writer       = WriterAgent(client, llm_cfg, pdir, wiki_root)
     standardizer = StandardizerAgent(
-        client, gemini_cfg, pdir,
+        client, llm_cfg, pdir,
         min_body_words = std_cfg.get("min_body_words", 80),
         min_wiki_links = std_cfg.get("min_wiki_links", 8),
     )
-    wiki_linker  = WikiLinkerAgent(client, gemini_cfg, pdir)
+    wiki_linker  = WikiLinkerAgent(client, llm_cfg, pdir)
 
     scores = []
     timings_all: list[dict] = []

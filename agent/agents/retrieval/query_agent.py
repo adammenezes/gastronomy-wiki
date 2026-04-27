@@ -25,7 +25,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini                                    # noqa: E402
+from llm    import call_llm                                    # noqa: E402
 from utils import load_prompt, inject_date, collect_wiki_pages   # noqa: E402
 
 log = logging.getLogger("cooking-brain.query")
@@ -65,9 +65,9 @@ _INTENT_MAP: dict[str, set[str]] = {
 
 
 class QueryAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path, wiki_root: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path, wiki_root: Path):
         self.client     = client
-        self.gemini_cfg = gemini_cfg
+        self.llm_cfg = llm_cfg
         self.wiki_root  = wiki_root
         self._prompt    = load_prompt(prompts_dir, "query")
 
@@ -111,7 +111,7 @@ class QueryAgent:
 
         # ── Gemini call ───────────────────────────────────────────────────────
         system = inject_date(self._prompt)
-        answer = call_gemini(self.client, self.gemini_cfg, system, user_content)
+        answer = call_llm(self.client, self.llm_cfg, system, user_content)
 
         # ── Parse NEEDS_RESEARCH signal ───────────────────────────────────────
         needs_research = None

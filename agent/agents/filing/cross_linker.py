@@ -25,7 +25,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini        # noqa: E402
+from llm    import call_llm        # noqa: E402
 from utils import load_prompt, collect_wiki_pages  # noqa: E402
 
 log = logging.getLogger("cooking-brain.cross_linker")
@@ -43,9 +43,9 @@ _STOP_WORDS = {
 
 
 class CrossLinkerAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path, wiki_root: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path, wiki_root: Path):
         self.client         = client
-        self.gemini_cfg     = gemini_cfg
+        self.llm_cfg     = llm_cfg
         self.wiki_root      = wiki_root
         self._update_prompt = load_prompt(prompts_dir, "cross_link_update")
 
@@ -114,8 +114,8 @@ class CrossLinkerAgent:
                 f"NEW LINK TO ADD:\n{link_text}\n\n"
                 f"REASON:\n{reason}"
             )
-            updated_block = call_gemini(
-                self.client, self.gemini_cfg, self._update_prompt, update_input
+            updated_block = call_llm(
+                self.client, self.llm_cfg, self._update_prompt, update_input
             ).strip()
 
             # Safety: only [[brackets]] may be added — no prose changes allowed

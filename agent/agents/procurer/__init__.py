@@ -59,7 +59,7 @@ class ProcurementAgent:
     def __init__(
         self,
         client,
-        gemini_cfg:   dict,
+        llm_cfg:   dict,
         prompts_dir:  Path,
         wiki_root:    Path,
         inbox_root:   Path,
@@ -69,11 +69,11 @@ class ProcurementAgent:
         self.wiki_root   = wiki_root
         self.inbox_root  = inbox_root
         self.client      = client
-        self.gemini_cfg  = gemini_cfg
+        self.llm_cfg     = llm_cfg
         self.prompts_dir = prompts_dir
 
         self.gap_analyzer  = GapAnalyzer(wiki_root, taxonomy_path)
-        self.scorer        = LeadScorer(client, gemini_cfg, prompts_dir)
+        self.scorer        = LeadScorer(client, llm_cfg, prompts_dir)
         self.deduplicator  = Deduplicator(wiki_root, inbox_root)
         self.leads_writer  = LeadsWriter(inbox_root)
         self.sources       = self._load_sources(sources_path)
@@ -242,7 +242,7 @@ class ProcurementAgent:
             source = {
                 **source,
                 "_client":      self.client,
-                "_gemini_cfg":  self.gemini_cfg,
+                "_llm_cfg":  self.llm_cfg,
                 "_prompts_dir": str(self.prompts_dir),
                 "_wiki_root":   str(self.wiki_root),
                 "_page_path":   page_path,

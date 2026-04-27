@@ -124,7 +124,7 @@ class SearchCrawler(BaseCrawler):
 
         # Injected by ProcurementAgent for LLM filtering
         client      = self.config.get("_client")
-        gemini_cfg  = self.config.get("_gemini_cfg")
+        llm_cfg     = self.config.get("_llm_cfg")
         prompts_dir = self.config.get("_prompts_dir", "")
         wiki_root   = self.config.get("_wiki_root", "")
         page_path   = self.config.get("_page_path", "")
@@ -179,9 +179,9 @@ class SearchCrawler(BaseCrawler):
         # _llm_refine_queries returns a flat list in the same order as
         # gaps_to_search, with exactly one query per gap (or queries_per_gap
         # queries per gap when configured > 1).
-        if client and gemini_cfg and prompts_dir:
+        if client and llm_cfg and prompts_dir:
             queries = self._llm_refine_queries(
-                client, gemini_cfg, prompts_dir,
+                client, llm_cfg, prompts_dir,
                 gaps_to_search, page_title, search_suffix, queries_per_gap,
             )
         else:
@@ -318,7 +318,7 @@ class SearchCrawler(BaseCrawler):
 
     def _llm_refine_queries(
         self,
-        client, gemini_cfg: dict, prompts_dir: str,
+        client, llm_cfg: dict, prompts_dir: str,
         gaps: list[str], page_title: str, search_suffix: str, queries_per_gap: int,
     ) -> list[str]:
         """
@@ -334,7 +334,7 @@ class SearchCrawler(BaseCrawler):
         Falls back to mechanical query construction if the LLM call fails.
         """
         try:
-            from gemini import call_gemini  # noqa: E402
+            from llm    import call_llm  # noqa: E402
             from utils  import load_prompt  # noqa: E402
 
             prompt_text = load_prompt(Path(prompts_dir), "search_queries")
@@ -347,7 +347,7 @@ class SearchCrawler(BaseCrawler):
                 f"Gap terms (one query required per term):\n{gap_list}"
             )
 
-            raw = call_gemini(client, gemini_cfg, prompt_text, user_msg)
+            raw = call_llm(client, llm_cfg, prompt_text, user_msg)
 
             # Strip markdown fences if present
             raw = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)

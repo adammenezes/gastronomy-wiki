@@ -40,7 +40,7 @@ _CATEGORY_ORDER = [
 
 
 class IndexerAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path, wiki_root: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path, wiki_root: Path):
         # client / gemini_cfg / prompts_dir kept for API compatibility but unused
         self.wiki_root = wiki_root
 

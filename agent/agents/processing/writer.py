@@ -12,7 +12,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini                              # noqa: E402
+from llm    import call_llm                              # noqa: E402
 from utils import (                                         # noqa: E402
     load_prompt, inject_date, slugify,
     CATEGORY_DIR, CATEGORY_PROMPT,
@@ -22,9 +22,9 @@ log = logging.getLogger("cooking-brain.writer")
 
 
 class WriterAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path, wiki_root: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path, wiki_root: Path):
         self.client      = client
-        self.gemini_cfg  = gemini_cfg
+        self.llm_cfg  = llm_cfg
         self.prompts_dir = prompts_dir
         self.wiki_root   = wiki_root
 
@@ -33,7 +33,7 @@ class WriterAgent:
         prompt_name = CATEGORY_PROMPT.get(category, "extract_recipe")
         system      = inject_date(load_prompt(self.prompts_dir, prompt_name))
         content     = f"SOURCE URL: {source_url}\n\n{raw_text}" if source_url else raw_text
-        return call_gemini(self.client, self.gemini_cfg, system, content)
+        return call_llm(self.client, self.llm_cfg, system, content)
 
     def write(self, category: str, title: str, content: str, dry_run: bool) -> Path:
         """Write (or update) wiki/<subdir>/<slug>.md. Returns the path."""

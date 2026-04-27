@@ -2,10 +2,13 @@
 #  Cooking Brain — Agent Configuration
 # ============================================================
 
-# --- Gemini API ---
-gemini:
-  api_key_env: GEMINI_API_KEY         # set this environment variable (required)
-  extra_api_key_envs:                 # optional extra keys — spreads rate limits across N keys
+# --- LLM (provider-agnostic via LangChain) ---
+# Supported providers: google, openai, anthropic, ollama
+# To switch providers: change `provider`, `model`, and `api_key_env` only.
+llm:
+  provider: google                    # google | openai | anthropic | ollama
+  api_key_env: GEMINI_API_KEY         # env var holding the key for the chosen provider
+  extra_api_key_envs:                 # optional extra keys — round-robin pool for rate-limit distribution
     # - GEMINI_API_KEY_2
     # - GEMINI_API_KEY_3
   model: gemini-2.5-flash             # default model for all agents
@@ -13,9 +16,23 @@ gemini:
   max_output_tokens: 8192
   agents:                             # per-agent model overrides (comment out to use default)
     writer:
-      model: gemini-2.5-pro           # better prose quality for page generation
+      model: gemini-2.5-pro           # higher quality for prose generation
     cross_linker:
-      model: gemini-2.5-flash         # high speed for processing many paragraph isolates
+      model: gemini-2.5-flash         # fast for paragraph-by-paragraph linking
+  # Examples for other providers — uncomment and replace the block above:
+  # provider: openai
+  # api_key_env: OPENAI_API_KEY
+  # model: gpt-4o-mini
+  # agents:
+  #   writer:
+  #     model: gpt-4o
+  #
+  # provider: anthropic
+  # api_key_env: ANTHROPIC_API_KEY
+  # model: claude-haiku-4-5-20251001
+  # agents:
+  #   writer:
+  #     model: claude-sonnet-4-6
 
 # --- Paths (relative to project root) ---
 paths:

@@ -25,7 +25,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from utils        import load_config        # noqa: E402
-from gemini       import init_gemini        # noqa: E402
+from llm          import init_llm           # noqa: E402
 from orchestrator import Orchestrator       # noqa: E402
 from agents.procurer import ProcurementAgent  # noqa: E402
 
@@ -145,9 +145,9 @@ def main():
     args = parser.parse_args()
 
     cfg         = load_config()
-    client      = init_gemini(cfg)
+    client      = init_llm(cfg)
     # Strip agents sub-dict — scorer uses default model only, not per-agent routing
-    gemini_cfg  = {k: v for k, v in cfg["gemini"].items() if k != "agents"}
+    llm_cfg     = {k: v for k, v in cfg["llm"].items() if k != "agents"}
     prompts_dir = cfg["paths"]["prompts"]
     wiki_root   = cfg["paths"]["wiki"]
     inbox_root  = cfg["paths"]["inbox"]
@@ -157,7 +157,7 @@ def main():
 
     agent = ProcurementAgent(
         client        = client,
-        gemini_cfg    = gemini_cfg,
+        llm_cfg       = llm_cfg,
         prompts_dir   = prompts_dir,
         wiki_root     = wiki_root,
         inbox_root    = inbox_root,

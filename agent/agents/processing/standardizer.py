@@ -30,7 +30,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini      # noqa: E402
+from llm    import call_llm      # noqa: E402
 from utils import load_prompt       # noqa: E402
 
 log = logging.getLogger("cooking-brain.standardizer")
@@ -72,13 +72,13 @@ class StandardizerAgent:
     def __init__(
         self,
         client,
-        gemini_cfg: dict,
+        llm_cfg: dict,
         prompts_dir: Path,
         min_body_words: int = 80,
         min_wiki_links: int = 2,
     ):
         self.client         = client
-        self.gemini_cfg     = gemini_cfg
+        self.llm_cfg     = llm_cfg
         self.min_body_words = min_body_words
         self.min_wiki_links = min_wiki_links
         self._prompt        = load_prompt(prompts_dir, "standardize")
@@ -163,8 +163,8 @@ class StandardizerAgent:
             f"ISSUES TO FIX:\n{issues_text}\n\n"
             f"CURRENT PAGE CONTENT:\n{content}"
         )
-        enriched = call_gemini(
-            self.client, self.gemini_cfg, self._prompt, user_content
+        enriched = call_llm(
+            self.client, self.llm_cfg, self._prompt, user_content
         )
 
         # Safety: all original lines must survive — only additions are allowed

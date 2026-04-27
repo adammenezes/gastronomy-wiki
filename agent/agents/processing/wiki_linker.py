@@ -29,16 +29,16 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini   # noqa: E402
+from llm    import call_llm   # noqa: E402
 from utils import load_prompt    # noqa: E402
 
 log = logging.getLogger("cooking-brain.wiki_linker")
 
 
 class WikiLinkerAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path):
         self.client     = client
-        self.gemini_cfg = gemini_cfg
+        self.llm_cfg = llm_cfg
         self._prompt    = load_prompt(prompts_dir, "wiki_link")
 
     def run(self, content: str) -> tuple[str, int]:
@@ -50,7 +50,7 @@ class WikiLinkerAgent:
         """
         before = len(re.findall(r"\[\[.+?\]\]", content))
 
-        linked = call_gemini(self.client, self.gemini_cfg, self._prompt, content)
+        linked = call_llm(self.client, self.llm_cfg, self._prompt, content)
 
         # Safety: de-linked prose must be identical — only [[brackets]] may be added
         if _delinked(linked) != _delinked(content):

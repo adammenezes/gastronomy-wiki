@@ -31,7 +31,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini, call_gemini_video   # noqa: E402
+from llm    import call_llm,    call_llm_video   # noqa: E402
 from utils import load_prompt                        # noqa: E402
 
 log = logging.getLogger("cooking-brain.cleaner")
@@ -46,9 +46,9 @@ _YOUTUBE_RE = re.compile(
 
 
 class CleanerAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path):
         self.client     = client
-        self.gemini_cfg = gemini_cfg
+        self.llm_cfg = llm_cfg
         self._prompt    = load_prompt(prompts_dir, "clean")
 
     # ── Public entry points ──────────────────────────────────────────────────
@@ -101,7 +101,7 @@ class CleanerAgent:
         """Gemini boilerplate removal on raw text."""
         log.info(f"  [cleaner] Extracted {len(raw.split())} words — stripping boilerplate…")
 
-        clean = call_gemini(self.client, self.gemini_cfg, self._prompt, raw)
+        clean = call_llm(self.client, self.llm_cfg, self._prompt, raw)
 
         # Safety: if Gemini returns something far shorter, the prompt may have
         # over-stripped. Fall back to raw text so the pipeline still runs.
@@ -140,8 +140,8 @@ class CleanerAgent:
             "  [cleaner] No transcript available — "
             "using Gemini native video processing…"
         )
-        clean = call_gemini_video(
-            self.client, self.gemini_cfg, self._prompt, url
+        clean = call_llm_video(
+            self.client, self.llm_cfg, self._prompt, url
         )
 
         if not clean or not clean.strip():

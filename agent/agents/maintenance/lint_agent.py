@@ -15,7 +15,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini                   # noqa: E402
+from llm    import call_llm                   # noqa: E402
 from utils import load_prompt, collect_wiki_pages  # noqa: E402
 
 log = logging.getLogger("cooking-brain.lint")
@@ -33,7 +33,7 @@ class LintAgent:
     def __init__(
         self,
         client,
-        gemini_cfg:  dict,
+        llm_cfg:  dict,
         prompts_dir: Path,
         wiki_root:   Path,
         lint_cfg:    dict | None = None,
@@ -42,13 +42,13 @@ class LintAgent:
         self.wiki_root  = wiki_root
         self._prompt    = load_prompt(prompts_dir, "lint")
 
-        # Lint produces large structured JSON — apply all lint_cfg overrides to gemini config
+        # Lint produces large structured JSON — apply all lint_cfg overrides to LLM config
         if lint_cfg:
-            self.gemini_cfg = {**gemini_cfg, **lint_cfg}
+            self.llm_cfg = {**llm_cfg, **lint_cfg}
             for key, val in lint_cfg.items():
                 log.info(f"[lint] {key} overridden to {val}")
         else:
-            self.gemini_cfg = gemini_cfg
+            self.llm_cfg = llm_cfg
 
     def run(self) -> dict:
         """
@@ -77,7 +77,7 @@ class LintAgent:
             indent=2,
         )
 
-        response = call_gemini(self.client, self.gemini_cfg, self._prompt, payload)
+        response = call_llm(self.client, self.llm_cfg, self._prompt, payload)
 
         # Strip code fences
         response = re.sub(r"^```(?:json)?\s*", "", response, flags=re.MULTILINE)

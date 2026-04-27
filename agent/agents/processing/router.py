@@ -16,16 +16,16 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini   # noqa: E402
+from llm    import call_llm   # noqa: E402
 from utils import load_prompt    # noqa: E402
 
 log = logging.getLogger("cooking-brain.router")
 
 
 class RouterAgent:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path):
         self.client      = client
-        self.gemini_cfg  = gemini_cfg
+        self.llm_cfg  = llm_cfg
         self._prompt     = load_prompt(prompts_dir, "route")
 
     def run(self, raw_text: str) -> dict:
@@ -40,12 +40,12 @@ class RouterAgent:
         }
         """
         # Ensure we have enough output tokens for potentially splitting large text chunks
-        cfg = self.gemini_cfg.copy()
+        cfg = self.llm_cfg.copy()
         if "max_output_tokens" not in cfg:
             cfg["max_output_tokens"] = 8192
         cfg["response_mime_type"] = "application/json"
 
-        response = call_gemini(self.client, cfg, self._prompt, raw_text)
+        response = call_llm(self.client, cfg, self._prompt, raw_text)
 
         # Strip markdown code fences Gemini sometimes adds
         response = re.sub(r"^```(?:json)?\s*", "", response, flags=re.MULTILINE)

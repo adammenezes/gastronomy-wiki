@@ -34,7 +34,7 @@ _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
-from gemini import call_gemini      # noqa: E402
+from llm    import call_llm      # noqa: E402
 from utils  import load_prompt      # noqa: E402
 from .lead  import Lead             # noqa: E402
 
@@ -130,9 +130,9 @@ def _apply_structural_paywall(lead: Lead) -> None:
 
 
 class LeadScorer:
-    def __init__(self, client, gemini_cfg: dict, prompts_dir: Path):
+    def __init__(self, client, llm_cfg: dict, prompts_dir: Path):
         self.client     = client
-        self.gemini_cfg = gemini_cfg
+        self.llm_cfg = llm_cfg
         self._prompt    = load_prompt(prompts_dir, "score_lead")
 
     def score_all(
@@ -194,7 +194,7 @@ class LeadScorer:
             "wiki_gaps":   gaps_summary,
         })
 
-        response = call_gemini(self.client, self.gemini_cfg, self._prompt, payload)
+        response = call_llm(self.client, self.llm_cfg, self._prompt, payload)
 
         # Strip any markdown code fences Gemini may add
         response = re.sub(r"^```(?:json)?\s*", "", response, flags=re.MULTILINE)

@@ -23,7 +23,7 @@ if str(_AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(_AGENT_DIR))
 
 from utils import load_config                          # noqa: E402
-from gemini import init_gemini                         # noqa: E402
+from llm    import init_llm                            # noqa: E402
 from agents.processing.cleaner      import CleanerAgent      # noqa: E402
 from agents.processing.router       import RouterAgent       # noqa: E402
 from agents.processing.writer       import WriterAgent       # noqa: E402
@@ -45,15 +45,15 @@ class Orchestrator:
         self.cfg     = cfg
         self.dry_run = dry_run
 
-        client      = init_gemini(cfg)
+        client      = init_llm(cfg)
         prompts_dir = cfg["paths"]["prompts"]
         wiki_root   = cfg["paths"]["wiki"]
 
-        # Build a per-agent gemini config, merging defaults with optional per-agent overrides.
-        # Strips the 'agents' sub-dict so it never leaks into call_gemini().
+        # Build a per-agent LLM config, merging defaults with optional per-agent overrides.
+        # Strips the 'agents' sub-dict so it never leaks into call_llm().
         def _acfg(name: str) -> dict:
-            base      = {k: v for k, v in cfg["gemini"].items() if k != "agents"}
-            overrides = cfg["gemini"].get("agents", {}).get(name, {})
+            base      = {k: v for k, v in cfg["llm"].items() if k != "agents"}
+            overrides = cfg["llm"].get("agents", {}).get(name, {})
             return {**base, **overrides}
 
         std_cfg = cfg.get("standardizer", {})
